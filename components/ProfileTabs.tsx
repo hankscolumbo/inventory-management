@@ -2,6 +2,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 
 interface GameLog {
   id: string;
@@ -60,7 +61,8 @@ export default function ProfileTabs({ logs }: { logs: GameLog[] }) {
               key={log.id}
               className="bg-slate-900 border border-slate-800/80 rounded-xl p-4 flex gap-4 items-start hover:border-slate-700 transition"
             >
-              {/* Cover Poster */}
+              {/* Clickable Cover Poster */}
+              <Link href={'/game/$log.externalGameId}'} className="shrink-0">
               {log.coverUrl ? (
                 <img
                   src={log.coverUrl}
@@ -72,11 +74,14 @@ export default function ProfileTabs({ logs }: { logs: GameLog[] }) {
                   No Cover
                 </div>
               )}
+              </Link>
 
-              {/* Log Information */}
+              {/* Clickable Title */}
               <div className="flex-1 min-w-0 space-y-1.5">
                 <div className="flex justify-between items-start">
+                <Link href={'/game/$log.externalGameId}'} className="hover:text-purple-400 transition">
                   <h3 className="font-bold text-slate-100 text-base truncate">{log.gameTitle}</h3>
+                  </Link> 
                   <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-medium">
                     {log.status}
                   </span>
