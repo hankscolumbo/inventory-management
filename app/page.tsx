@@ -1,4 +1,5 @@
 import GameSearch from '@/components/GameSearch';
+import GameSearchAutoSuggest from '@/components/GameSearchAutoSuggest';
 
 export default function Home() {
   return (
