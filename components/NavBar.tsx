@@ -10,19 +10,22 @@ export async function Navbar() {
             🎮 Inventory Management
             </Link>
 
-            <div className="flex items-center gap-4">
-                {session?.user ? (
-                    <div className="flex items-center gap-3">
-                        {session.user.image && (
-                            <img
-                                src={session.user.image}
-                                alt={session.user.name || 'User avatar'}
-                                className="w-8 h-8 rounded-full border border-slate-700"
-                                />
-                        )}
-                        <span className="text-sm text-slate-300 font-medium">
-                            {session.user.name || session.user.email}
-                        </span>
+                        <div className="flex items-center gap-4">
+                            {session?.user ? (
+                            <div className="flex items-center gap-4">
+                                <Link
+                                href="/profile"
+                                className="flex items-center gap-2 text-slate-300 hover:text-white transition"
+                                >
+                                {session.user.image && (
+                                    <img
+                                    src={session.user.image}
+                                    alt={session.user.name || 'User avatar'}
+                                    className="w-8 h-8 rounded-full border border-slate-700"
+                                    />
+                                )}
+                        <span className="text-sm font-medium">Profile</span>
+                        </Link>
 
                         <form
                             action={async () => {
