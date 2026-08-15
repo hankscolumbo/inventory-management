@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import LogGameButton from './LogGameButton';
 
 // Define explicit type for search results matching API output
 export interface Game {
@@ -97,6 +98,16 @@ export default function GameSearch({ onSelectGame }: GameSearchProps) {
                     {game.name}
                   </h3>
                 </Link>
+                {/* Client Interactive Log Button */}
+                <div className="justify-content: flex-end">
+                    <LogGameButton
+                    game={{
+                        id: game.id,
+                        name: game.name,
+                        coverUrl: game.coverUrl,
+                    }}
+                    />
+                </div>
               </div>
 
               {/* Log Button */}

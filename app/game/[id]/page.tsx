@@ -2,6 +2,7 @@
 import { getGameCommunityData } from '@/app/actions/getGameCommunityData';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import LogGameButton from '@/components/LogGameButton';
 
 interface GamePageProps {
   params: Promise<{
@@ -64,7 +65,6 @@ async function fetchIgdbGame(gameId: number) {
 // 2. PAGE COMPONENT
 export default async function GameDetailsPage({ params }: GamePageProps) {
   const { id } = await params;
-  console.log('>>>> ACCESSED GAME ROUTE WITH ID:', id);
   const gameId = parseInt(id, 10);
 
   if (isNaN(gameId)) {
@@ -136,6 +136,17 @@ export default async function GameDetailsPage({ params }: GamePageProps) {
           </div>
         </div>
       </div>
+
+        {/* Client Interactive Log Button */}
+          <div className="justify-content: flex-end">
+            <LogGameButton
+              game={{
+                id: game.id,
+                name: game.name,
+                coverUrl: game.coverUrl,
+              }}
+            />
+        </div>
 
       {/* Community Reviews Section */}
       <section className="space-y-6">

@@ -1,76 +1,95 @@
 // app/profile/page.tsx
-import { auth } from '@/lib/auth';
-import { getProfileData } from '@/app/actions/getProfileData';
+//import { getServerSession } from 'next-auth/next';
 import { redirect } from 'next/navigation';
-import Image from 'next/image';
+import { getProfileData } from '@/app/actions/getProfileData';
 import ProfileTabs from '@/components/ProfileTabs';
+//import { auth } from '@/app/api/auth/[...nextauth]/route';
 
 export default async function ProfilePage() {
+  /* 1. Verify user session
   const session = await auth();
 
-  if (!session?.user) {
-    redirect('/');
+  if (!session || !session.user) {
+    redirect('/api/auth/signin');
+  }
+    */
+
+  //Alternate method - if user isnt logged in or profile  failed to load, redirect to sign in
+  const profileData = await getProfileData();
+
+  if (!profileData?.user) {
+    redirect('/api/auth/signin');
   }
 
-  const data = await getProfileData(session.user.id);
+  const { user, logs = [] } = profileData;
 
-  if ('error' in data || !data.user) {
-    return (
-      <main className="max-w-5xl mx-auto px-6 py-12 text-center text-slate-400">
-        Failed to load profile.
-      </main>
-    );
-  }
+  // Provide safe fallback object for stats to clear Typescript undefined warnings 
+  const stats = profileData.stats ?? {
+    totalLogged: 0,
+    playedCount: 0,
+    avgRating: null,
+  };
 
-  const { user, stats, logs } = data;
+  // 2. Fetch user profile stats & logs from Neon DB via Prisma
+  //const profileData = await getProfileData();
 
   return (
     <main className="max-w-6xl mx-auto px-6 py-10 space-y-10">
-      {/* Profile Header */}
+      {/* Profile Header Banner */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-4">
           {user.image ? (
             <img
               src={user.image}
-              alt={user.name}
-              className="w-20 h-20 rounded-full border-2 border-purple-500/50 shadow-lg"
+              alt={user.name || 'User Avatar'}
+              className="w-20 h-20 rounded-full border-2 border-purple-500 shadow-lg object-cover"
             />
           ) : (
-            <div className="w-20 h-20 rounded-full bg-purple-600 flex items-center justify-center text-2xl font-bold text-white">
-              {user.name.charAt(0)}
+            <div className="w-20 h-20 rounded-full bg-purple-600 flex items-center justify-center text-2xl font-bold text-white shadow-lg">
+              {user.name?.charAt(0) || 'U'}
             </div>
           )}
+
           <div>
-            <h1 className="text-2xl font-bold text-white">{user.name}</h1>
-            <p className="text-xs text-slate-400 mt-1">
-              Member since {new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-            </p>
+            <h1 className="text-2xl font-extrabold text-white">
+              {user.name || 'Gamer Profile'}
+            </h1>
+            {user.email && (
+                <p className="text-xs text-slate-400 mt-1">{user.email}</p>
+            )}
           </div>
         </div>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-4 gap-4 w-full sm:w-auto text-center border-t sm:border-t-0 sm:border-l border-slate-800 pt-4 sm:pt-0 sm:pl-8">
-          <div>
+        {/* Quick Stats Bar */}
+        <div className="flex gap-6 border-t sm:border-t-0 sm:border-l border-slate-800 pt-4 sm:pt-0 sm:pl-8">
+          <div className="text-center sm:text-left">
             <p className="text-2xl font-bold text-white">{stats.totalLogged}</p>
-            <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Logged</p>
+            <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">
+              Total Logged
+            </p>
           </div>
-          <div>
-            <p className="text-2xl font-bold text-amber-400">★ {stats.avgRating}</p>
-            <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Avg Rating</p>
+          <div className="text-center sm:text-left">
+            <p className="text-2xl font-bold text-purple-400">{stats.playedCount}</p>
+            <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">
+              Played
+            </p>
           </div>
-          <div>
-            <p className="text-2xl font-bold text-purple-400">{stats.playingCount}</p>
-            <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Playing</p>
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-blue-400">{stats.backlogCount}</p>
-            <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Backlog</p>
+          <div className="text-center sm:text-left">
+            <p className="text-2xl font-bold text-amber-400">
+              {stats.avgRating ? `★ ${stats.avgRating}` : 'N/A'}
+            </p>
+            <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">
+              Avg Rating
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Filterable Tabs & Logs */}
-      <ProfileTabs logs={logs} />
+      {/* Interactive Logs List with Filter & Sort Controls */}
+      <section className="space-y-4">
+        <h2 className="text-xl font-bold text-white">Game Collection</h2>
+        <ProfileTabs logs={logs} />
+      </section>
     </main>
   );
 }
