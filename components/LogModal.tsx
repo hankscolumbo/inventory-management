@@ -34,25 +34,23 @@ export default function LogModal({ game, onClose, onSuccess }: LogModalProps) {
 
     try {
         // call existing logGame server action or API route
-        const res = await fetch('/api/logs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                externalGameId: game.id,
-                gameTitle: game.name,
-                coverUrl: game.coverUrl,
-                rating,
-                review,
-                status,
-            }),
+        const res = await logGame({
+            externalGameId: Number(game.id),
+            gameTitle: game.name,
+            coverUrl: game.coverUrl ?? undefined,
+            rating,
+            review,
+            status,
         });
 
-        if (res.ok) {
-            if (onSuccess) onSuccess();
+        if (res.success) {
             onClose();
+        } else {
+            alert(res.error || 'Failed to save log');
         }
     } catch (error) {
         console.error('Failed to log game:', error);
+        alert('An error occured while saving.');
     } finally {
       setLoading(false);
     }
