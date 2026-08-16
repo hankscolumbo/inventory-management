@@ -10,26 +10,27 @@ export async function getPublicProfile(username: string) {
         name: true,
         username: true,
         image: true,
+        steamId: true,
         createdAt: true,
         logs: {
           orderBy: { playedOn: 'desc' },
-          select: {
-            id: true,
-            externalGameId: true,
-            gameTitle: true,
-            coverUrl: true,
-            status: true,
-            rating: true,
-            review: true,
-            playedOn: true,
-          },
         },
-      },
+        lists: {
+            where: { isPrivate: false },
+            orderBy: { createdAt: 'desc' },
+            include: {
+                items: {
+                    orderBy: { position: 'asc' },
+                    take: 4, // fetch first 4 covers for list preview cards
+                    },
+                },
+            },
+        },
     });
 
     return user;
-  } catch (error) {
+    } catch (error) {
     console.error('Failed to fetch public profile:', error);
     return null;
-  }
+    }
 }

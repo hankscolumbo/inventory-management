@@ -9,19 +9,20 @@ generator client {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  name      String?
-  username  String?  @unique
-  email     String?  @unique
-  emailVerified DateTime?
-  image     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(cuid())
+  name            String?
+  username        String?  @unique
+  email           String?  @unique
+  emailVerified   DateTime?
+  image           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  steamId         String? @unique // store the user's linked Steam ID
   
-  accounts  Account[]
-  sessions  Session[]
-  logs      GameLog[]
-  lists     CustomList[]
+  accounts        Account[]
+  sessions        Session[]
+  logs            GameLog[]
+  lists           CustomList[]
 }
 
 model Account {
@@ -63,13 +64,14 @@ model GameLog {
   id         String   @id @default(cuid())
   rating     Float?   // e.g., 4.5 out of 5
   review     String?  @db.Text
-  status     String   @default("PLAYED") // PLAYED, PLAYING, BACKLOG, ABANDONED
+  status     String   // PLAYED, PLAYING, BACKLOG, etc.
   playedOn   DateTime @default(now())
   
-  // Game ID from external API (like IGDB or RAWG)
-  externalGameId  Int  
+  steamAppId      Int? // Steam AppID (helps bridge Steam & IGDB)
+  externalGameId  Int  // Game ID from external API (like IGDB or RAWG)
   gameTitle       String    // cached title for easy display
   coverUrl        String?   // Cached cover image coverUrl
+  playtimeHours   Float?  // Total hours synced from Steam
 
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -81,9 +83,11 @@ model CustomList {
   id          String   @id @default(cuid())
   title       String
   description String?
+  isPrivate   Boolean
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now()) 
+  updatedAt   DateTime  @updatedAt 
   items       ListItem[]
 }
 
@@ -92,4 +96,10 @@ model ListItem {
   listId         String
   list           CustomList @relation(fields: [listId], references: [id], onDelete: Cascade)
   externalGameId Int
+  gameTitle     String
+  coverUrl      String?
+  position      Int         @default(0)
+  addedAt       DateTime    @default(now())
+
+  @@unique([listId, externalGameId])
 }
