@@ -6,38 +6,97 @@ import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
 export async function syncSteamGames() {
-  const session = await auth();
-  if (!session?.user?.email) return { success: false, error: 'Unauthenticated' };
+    try {
+        const session = await auth();
+        const userEmail = session?.user?.email;
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
+        if (!userEmail) {
+            return { success: false, error: 'Unauthenticated' };
+    }
+
+    const user = await prisma.user.findUnique({
+        where: { email: userEmail },
   });
 
-  if (!user?.steamId) {
-    return { success: false, error: 'No Steam account linked.' };
+  if (!user || !user.steamId) {
+    return { success: false, error: 'No linked Steam ID Found.' };
   }
 
   // Fetch games from Steam API
-  const res = await fetch(
+  const STEAM_API_KEY = process.env.STEAM_API_KEY;
+  if (!STEAM_API_KEY) {
+    return { success: false, error: 'STEAM_API_KEY environment variable is missing' };
+  }
+
+  const SteamRes = await fetch(
     `https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=${process.env.STEAM_API_KEY}&steamid=${user.steamId}&include_appinfo=true&format=json`
   );
 
-  const data = await res.json();
-  const steamGames = data.response?.games || [];
-
-  // Loop & Sync into DB
-  for (const game of steamGames) {
-    const playtimeHours = Math.round((game.playtime_forever / 60) * 10) / 10;
-    
-    // Auto-categorize: Played > 2 hrs -> PLAYED, > 0 -> PLAYING, 0 -> BACKLOG
-    let status = 'BACKLOG';
-    if (playtimeHours > 2) status = 'PLAYED';
-    else if (playtimeHours > 0) status = 'PLAYING';
-
-    // Map to GameLog table
-    // (Note: Optional IGDB matching can be performed here using title search)
+  if (!SteamRes.ok) {
+    console.error('Steam API Response Error:', await SteamRes.text());
+    return { success: false, error: 'Failed to fetch games from Steam API.'};
   }
 
+  const steamData = await SteamRes.json();
+  const steamGames = steamData.response?.games || [];
+
+  if (steamGames.length === 0) {
+    return { success: true , count: 0, message: 'No games found in Steam account.'};
+  }
+
+  console.log('Syncing ${games.length} Steam games for user ${user.id}...');
+
+  // Prepare database upsert operations
+  const upsertOperations = steamGames.map((game: any) => {
+    const appId = Number(game.appid);
+    const gameTitle = game.name || 'Steam App ${appId}';
+    const coverUrl = game.img_icon_url
+        ? 'https://media.steampowered.com/steamcommunity/public/images/apps/${appId}/${game.img_icon_url}.jpg'
+        : 'https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg';
+
+    // Deremine status based on playtime
+    const playtimeMinutes = game.playtime_forever || 0;
+    const status = playtimeMinutes > 0 ? 'PLAYED' : 'BACKLOG';
+
+    return prisma.gameLog.upsert({
+        where: {
+            userId_externalGameId: {
+                userId: user.id,
+                externalGameId: appId,
+            },
+        },
+        update: {
+            gameTitle,
+            coverUrl,
+            // only update status if it was in BACKLOG and now has playtime
+            status,
+        },
+        create: {
+            userId: user.id,
+            externalGameId: appId,
+            gameTitle,
+            coverUrl,
+            status
+        },
+    });
+  });
+
+  // Execute in batch chunks of 50 to prevent database connection timeout
+  const CHUNK_SIZE = 50;
+  let savedCount = 0;
+
+  for (let i = 0; i < upsertOperations.length; i += CHUNK_SIZE) {
+    const chunk = upsertOperations.slice(i, i + CHUNK_SIZE);
+    await prisma.$transaction(chunk);
+    savedCount += chunk.length;
+  }
+
+  console.log('Successfully stored ${saveCount} Steam games in the Neon DB');
+
   revalidatePath('/profile');
-  return { success: true, count: steamGames.length };
+  return { success: true, count: savedCount };
+} catch (error) {
+    console.error('Error saving Steam sync to database:', error);
+    return { success: false, error: 'Database transaction failed during sync.'};
+}
 }
