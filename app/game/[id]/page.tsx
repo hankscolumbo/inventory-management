@@ -16,8 +16,11 @@ async function getGameDetails(gameId: string) {
     const numericId = Number(gameId);
     if (isNaN(numericId)) return null;
 
-    const clientId = process.env.TWITCH_CLIENT_ID;
-    const clientSecret = process.env.TWITCH_CLIENT_SECRET;
+    const rawClientId = process.env.TWITCH_CLIENT_ID?.trim() || '';
+    const rawClientSecret = process.env.TWITCH_CLIENT_SECRET?.trim() || '';
+
+    const clientId = rawClientId.replace(/['"\s]/g, '');
+    const clientSecret = rawClientSecret.replace(/['"\s]/g, '');
 
     if (!clientId || !clientSecret) {
       console.error('Missing Twitch Client ID or Twitch Client Secret');
@@ -37,11 +40,12 @@ async function getGameDetails(gameId: string) {
       console.error('Twitch token request failed:', tokenData);
       return null;
     }
-    
+
+    const accessToken = tokenData.access_token.replace(/['"\s]/g, '');
 
     const headers = {
-      'Client-ID': process.env.TWITCH_CLIENT_ID!,
-      Authorization: 'Bearer ${tokenData.access_token}',
+      'Client-ID': clientId.trim(),
+      'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'text/plain',
     };
 
@@ -50,45 +54,44 @@ async function getGameDetails(gameId: string) {
       method: 'POST',
       headers,
       body: `fields name, summary, cover.url, first_release_date, genres.name, platforms.name; where id = ${numericId};`,
-      //next: { revalidate: 3600 },
     });
 
     let games = await igdbRes.json();
-    console.log("Direct IGDB Response:", games);
+
+    if (igdbRes.status === 401 || (games && games.message?.includes('Authorization Failure'))) {
+      console.error('IGDB Rejected Token/Headers:', games);
+      return null;
+    }
 
     // if direct ID lookup fails or returns empty, query IGDB by steam id
     if (!Array.isArray(games) || games.length === 0 || 'cause' in games) {
       const steamLookupRes = await fetch('https://api.igdb.com/v4/external_games', {
         method: 'POST',
         headers,
-        body: 'fields game.id, game.name, game.summary, game.cover.url, game.first_release_date, game.genres.name, game.platforms.name; where uid = ${numericId} & category = 1;',
+        body: `fields game.id, game.name, game.summary, game.cover.url, game.first_release_date, game.genres.name, game.platforms.name; where uid = ${gameId} & category = 1;`,
       });
 
       const externalGames = await steamLookupRes.json();
+
       if (Array.isArray(externalGames) && externalGames.length > 0 && externalGames[0]?.game) {
         games = [externalGames[0].game];
       }
     }
 
-    const game = Array.isArray(games) ? games[0] : null;
+    const game = Array.isArray(games) && games.length > 0 ? games[0] : null;
 
     // Hard Fallback: if IGDB has no record, construct a basic game object
-    if (!game) {
+    if (!game || !game.name) {
       return {
         id: numericId,
         name: `Game ${gameId}`,
         summary: 'No description available for this game',
         coverUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${gameId}/library_600x900.jpg`,
-        genres: [],
-        platforms: [],
-        releaseYear: null,
+        genres: [] as string[],
+        platforms: [] as string[],
+        releaseYear: null as number | null,
       };
     }
-
-    //if (!games || games.length === 0) return null;
-
-    //const game = games?.[0];
-    //if (!game) return null;
 
     const coverUrl = game.cover?.url
       ? `https:${game.cover.url.replace('t_thumb', 't_1080p')}`

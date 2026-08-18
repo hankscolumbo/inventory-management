@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import ProfileGameGrid from './ProfileGameGrid';
 import { auth } from '@/app/api/auth/[...nextauth]/route';
 import SyncSteamButton from '@/components/SyncSteamButton';
+import SignOutButton from '@/components/SignOutButton';
 
 interface PageProps {
   params: Promise<{ username: string }>;
@@ -61,6 +62,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
         {isOwner && (
             <div className="flex justify-center sm:justify-end">
                 <SyncSteamButton />
+                <SignOutButton />
             </div>
         )}
 
