@@ -20,8 +20,8 @@ export default async function Navbar() {
   const profileHref = username ? `/u/${username}` : '/profile';
 
   return (
-    <header className="w-full bg-slate-900 border-b border-slate-800 px-6 py-4 sticky top-0 z-50">
-      <nav className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between">
+    <nav className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-950/80 backdrop-blur-md">
+        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
         <Link
           href="/"
           className="font-extrabold text-white text-lg tracking-tight hover:text-purple-400 transition"
@@ -55,7 +55,7 @@ export default async function Navbar() {
                 </Link>
           )}
         </div>
-      </nav>
-    </header>
+        </div>
+    </nav>
   );
 }

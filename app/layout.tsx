@@ -12,7 +12,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <SessionProvider>
         <Navbar />
-        {children}
+          {children}
       </SessionProvider>
       </body>
     </html>
