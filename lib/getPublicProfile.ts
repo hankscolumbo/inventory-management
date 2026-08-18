@@ -9,6 +9,7 @@ export async function getPublicProfile(username: string) {
         id: true,
         name: true,
         username: true,
+        email: true,
         image: true,
         steamId: true,
         createdAt: true,

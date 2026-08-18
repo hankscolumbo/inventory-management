@@ -1,5 +1,5 @@
 // app/game/[id]/page.tsx
-import { getGameCommunityData } from '@/app/actions/getGameCommunityData';
+import { getGameCommunityData } from '@/lib/getGameCommunityData'; // aka GameStats
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import LogGameButton from '@/components/LogGameButton';
@@ -11,42 +11,96 @@ interface GamePageProps {
 }
 
 // 1. TOP-LEVEL HELPER FUNCTION (Outside component body)
-async function fetchIgdbGame(gameId: number) {
+async function getGameDetails(gameId: string) {
   try {
+    const numericId = Number(gameId);
+    if (isNaN(numericId)) return null;
+
+    const clientId = process.env.TWITCH_CLIENT_ID;
+    const clientSecret = process.env.TWITCH_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      console.error('Missing Twitch Client ID or Twitch Client Secret');
+      return null;
+    }
+
+    // Get Twitch OAuth Token
     const tokenRes = await fetch(
-      `https://id.twitch.tv/oauth2/token?client_id=${process.env.TWITCH_CLIENT_ID}&client_secret=${process.env.TWITCH_CLIENT_SECRET}&grant_type=client_credentials`,
-      { method: 'POST', next: { revalidate: 3600 } }
+      `https://id.twitch.tv/oauth2/token?client_id=${clientId}&client_secret=${clientSecret}&grant_type=client_credentials`,
+      { method: 'POST', cache: 'no-store' }
     );
 
-    if (!tokenRes.ok) return null;
     const tokenData = await tokenRes.json();
+    console.log('Generated Token:', tokenData.access_token ? 'SUCCESS' : tokenData);
 
-    const igdbRes = await fetch('https://api.igdb.com/v4/games', {
+    if (!tokenRes.ok || !tokenData.access_token) {
+      console.error('Twitch token request failed:', tokenData);
+      return null;
+    }
+    
+
+    const headers = {
+      'Client-ID': process.env.TWITCH_CLIENT_ID!,
+      Authorization: 'Bearer ${tokenData.access_token}',
+      'Content-Type': 'text/plain',
+    };
+
+    // Try fetching directly by IGDB ID
+    let igdbRes = await fetch('https://api.igdb.com/v4/games', {
       method: 'POST',
-      headers: {
-        'Client-ID': process.env.TWITCH_CLIENT_ID!,
-        Authorization: `Bearer ${tokenData.access_token}`,
-        'Content-Type': 'text/plain',
-      },
-      body: `fields name, summary, cover.url, first_release_date, genres.name; where id = ${gameId};`,
-      next: { revalidate: 3600 },
+      headers,
+      body: `fields name, summary, cover.url, first_release_date, genres.name, platforms.name; where id = ${numericId};`,
+      //next: { revalidate: 3600 },
     });
 
-    if (!igdbRes.ok) return null;
-    const games = await igdbRes.json();
-    if (!games || games.length === 0) return null;
+    let games = await igdbRes.json();
+    console.log("Direct IGDB Response:", games);
 
-    const game = games[0];
+    // if direct ID lookup fails or returns empty, query IGDB by steam id
+    if (!Array.isArray(games) || games.length === 0 || 'cause' in games) {
+      const steamLookupRes = await fetch('https://api.igdb.com/v4/external_games', {
+        method: 'POST',
+        headers,
+        body: 'fields game.id, game.name, game.summary, game.cover.url, game.first_release_date, game.genres.name, game.platforms.name; where uid = ${numericId} & category = 1;',
+      });
+
+      const externalGames = await steamLookupRes.json();
+      if (Array.isArray(externalGames) && externalGames.length > 0 && externalGames[0]?.game) {
+        games = [externalGames[0].game];
+      }
+    }
+
+    const game = Array.isArray(games) ? games[0] : null;
+
+    // Hard Fallback: if IGDB has no record, construct a basic game object
+    if (!game) {
+      return {
+        id: numericId,
+        name: `Game ${gameId}`,
+        summary: 'No description available for this game',
+        coverUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${gameId}/header.jpg`,
+        genres: [],
+        platforms: [],
+        releaseYear: null,
+      };
+    }
+
+    //if (!games || games.length === 0) return null;
+
+    //const game = games?.[0];
+    //if (!game) return null;
 
     const coverUrl = game.cover?.url
-      ? `https:${game.cover.url.replace('t_thumb', 't_cover_big')}`
-      : null;
+      ? `https:${game.cover.url.replace('t_thumb', 't_1080p')}`
+      : `https://cdn.cloudflare.steamstatic.com/steam/apps/${gameId}/header.jpg`;
 
     const releaseYear = game.first_release_date
       ? new Date(game.first_release_date * 1000).getFullYear()
       : null;
 
     const genres = game.genres?.map((g: { name: string }) => g.name).join(', ') || 'Game';
+
+    const platforms = game.platforms?.map((p: any) => p.name) || [];
 
     return {
       id: game.id,
@@ -55,6 +109,7 @@ async function fetchIgdbGame(gameId: number) {
       coverUrl,
       releaseYear,
       genres,
+      platforms,
     };
   } catch (error) {
     console.error('Error fetching IGDB details:', error);
@@ -65,19 +120,9 @@ async function fetchIgdbGame(gameId: number) {
 // 2. PAGE COMPONENT
 export default async function GameDetailsPage({ params }: GamePageProps) {
   const { id } = await params;
-  const gameId = parseInt(id, 10);
+  const game = await getGameDetails(id);
+  const stats = await getGameCommunityData(Number(id));
 
-  if (isNaN(gameId)) {
-    notFound();
-  }
-
-  // Fetch IGDB metadata & Neon DB community reviews concurrently
-  const [game, communityData] = await Promise.all([
-    fetchIgdbGame(gameId),
-    getGameCommunityData(gameId),
-  ]);
-
-  // If IGDB returns no game for this ID, render Next.js 404
   if (!game) {
     notFound();
   }
@@ -115,17 +160,47 @@ export default async function GameDetailsPage({ params }: GamePageProps) {
             </p>
           </div>
 
-          {/* Stats Bar */}
-          <div className="flex gap-8 border-y border-slate-800 py-4">
+          {/* COMMUNITY STATS BAR */}
+          <div className="flex flex-wrap gap-6 py-3 px-4 bg-slate-950 border border-slate-800 rounded-xl text-xs">
             <div>
-              <p className="text-2xl font-bold text-amber-400">
-                {communityData.avgRating ? `★ ${communityData.avgRating}` : 'N/A'}
-              </p>
-              <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Avg Rating</p>
+              <span className="font-extrabold text-white text-base block">
+                {stats.avgRating ? `★ ${stats.avgRating}` : 'N/A'}
+              </span>
+              <span className="text-slate-400 uppercase tracking-wider font-semibold text-[10px]">
+                Avg Rating
+              </span>
             </div>
-            <div>
-              <p className="text-2xl font-bold text-white">{communityData.totalLogs}</p>
-              <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Community Logs</p>
+            <div className="border-l border-slate-800 pl-6">
+              <span className="font-extrabold text-white text-base block">
+                {stats.totalLogs}
+              </span>
+              <span className="text-slate-400 uppercase tracking-wider font-semibold text-[10px]">
+                Logged By
+              </span>
+            </div>
+            <div className="border-l border-slate-800 pl-6">
+              <span className="font-extrabold text-emerald-400 text-base block">
+                {stats.playedCount}
+              </span>
+              <span className="text-slate-400 uppercase tracking-wider font-semibold text-[10px]">
+                Played
+              </span>
+            </div>
+            <div className="border-l border-slate-800 pl-6">
+              <span className="font-extrabold text-cyan-400 text-base block">
+                {stats.playingCount}
+              </span>
+              <span className="text-slate-400 uppercase tracking-wider font-semibold text-[10px]">
+                Playing
+              </span>
+            </div>
+            <div className="border-l border-slate-800 pl-6">
+              <span className="font-extrabold text-amber-400 text-base block">
+                {stats.backlogCount}
+              </span>
+              <span className="text-slate-400 uppercase tracking-wider font-semibold text-[10px]">
+                Backlog
+              </span>
             </div>
           </div>
 
@@ -148,59 +223,6 @@ export default async function GameDetailsPage({ params }: GamePageProps) {
             />
         </div>
 
-      {/* Community Reviews Section */}
-      <section className="space-y-6">
-        <h2 className="text-xl font-bold text-white">Community Reviews</h2>
-
-        {communityData.logs.length === 0 ? (
-          <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-8 text-center text-slate-500 text-sm">
-            No reviews logged for this game yet.
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {communityData.logs.map((log) => (
-              <div
-                key={log.id}
-                className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3"
-              >
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    {log.user.image ? (
-                      <img
-                        src={log.user.image}
-                        alt={log.user.name || 'User'}
-                        className="w-8 h-8 rounded-full border border-slate-700"
-                      />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-xs font-bold text-white">
-                        {log.user.name?.charAt(0) || 'U'}
-                      </div>
-                    )}
-                    <div>
-                      <p className="text-sm font-semibold text-white">{log.user.name || 'Gamer'}</p>
-                      <p className="text-xs text-slate-500">
-                        {new Date(log.playedOn).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-
-                  {log.rating && (
-                    <div className="text-amber-400 font-semibold text-sm">
-                      {'★'.repeat(Math.round(log.rating))}
-                    </div>
-                  )}
-                </div>
-
-                {log.review && (
-                  <p className="text-sm text-slate-300 italic bg-slate-950/40 p-3 rounded-lg border border-slate-800/60">
-                    "{log.review}"
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
     </main>
   );
 }

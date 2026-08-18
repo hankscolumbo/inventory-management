@@ -4,15 +4,9 @@
 import { useState, useTransition } from 'react';
 import { syncSteamGames } from '@/app/actions/syncSteam';
 
-interface SyncSteamButtonProps {
-  hasSteamLinked: boolean;
-}
-
-export default function SyncSteamButton({ hasSteamLinked }: SyncSteamButtonProps) {
+export default function SyncSteamButton() {
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<string | null>(null);
-
-  if (!hasSteamLinked) return null;
 
   const handleSync = () => {
     setFeedback(null);

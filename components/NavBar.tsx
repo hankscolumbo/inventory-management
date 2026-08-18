@@ -1,66 +1,61 @@
 // components/Navbar.tsx
 import { auth, signIn, signOut } from '@/app/api/auth/[...nextauth]/route';
 import Link from 'next/link';
+import { prisma } from '@/lib/prisma';
 
 export default async function Navbar() {
-  let session = null;
+  const session = await auth();
 
-  try {
-    session = await auth();
-  } catch (error) {
-    console.error('Navbar Session Fetch Error:', error);
+  let username = null;
+
+  if (session?.user?.email) {
+    const dbUser = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { username: true },
+    });
+    username = dbUser?.username;
   }
+
+  // Fallback profile link if username isn't set yet
+  const profileHref = username ? `/u/${username}` : '/profile';
 
   return (
     <header className="w-full bg-slate-900 border-b border-slate-800 px-6 py-4 sticky top-0 z-50">
-      <div className="max-w-6xl mx-auto flex items-center justify-between">
+      <nav className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between">
         <Link
           href="/"
           className="font-extrabold text-white text-lg tracking-tight hover:text-purple-400 transition"
         >
-          GameTrack
+          Inventory Management
         </Link>
 
-        <div className="flex items-center gap-4">
-          {session?.user ? (
-            <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 text-xs font-semibold">
+          {session ? (
+            /* Logged In State: Direct to /u/[username] */
               <Link
-                href="/profile"
-                className="text-sm font-medium text-slate-300 hover:text-white transition"
+                href={profileHref}
+                className="flex items-center gap-2 text-slate-200 hover:text-purple transition"
               >
-                {session.user.name || session.user.email || 'Profile'}
-              </Link>
-              <form
-                action={async () => {
-                  'use server';
-                  await signOut();
-                }}
-              >
-                <button
-                  type="submit"
-                  className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold px-3 py-2 rounded-lg border border-slate-700 transition"
-                >
-                  Sign Out
-                </button>
-              </form>
-            </div>
+                {session.user?.image && (
+                    <img
+                        src={session.user.image}
+                        alt="Avatar"
+                        className="w-6 h-6 rounded-full border-purple-500/50"
+                    />
+                )}
+            <span>{username ? `${username}` : (session.user?.name || 'Profile')}</span>
+            </Link>
           ) : (
-            <form
-              action={async () => {
-                'use server';
-                await signIn('twitch');
-              }}
-            >
-              <button
-                type="submit"
-                className="text-xs bg-purple-600 hover:bg-purple-500 text-white font-bold px-4 py-2 rounded-lg transition shadow-md shadow-purple-900/20"
-              >
-                Sign In with Twitch
-              </button>
-            </form>
+            /* Logged Out State: Show Sign In Link */
+            <Link
+                href="/api/auth/signin"
+                className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition"
+                >
+                    Sign In With Twitch
+                </Link>
           )}
         </div>
-      </div>
+      </nav>
     </header>
   );
 }

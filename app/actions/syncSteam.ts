@@ -50,9 +50,7 @@ export async function syncSteamGames() {
   const upsertOperations = steamGames.map((game: any) => {
     const appId = Number(game.appid);
     const gameTitle = game.name || 'Steam App ${appId}';
-    const coverUrl = game.img_icon_url
-        ? 'https://media.steampowered.com/steamcommunity/public/images/apps/${appId}/${game.img_icon_url}.jpg'
-        : 'https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg';
+    const coverUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`;
 
     // Deremine status based on playtime
     const playtimeMinutes = game.playtime_forever || 0;
