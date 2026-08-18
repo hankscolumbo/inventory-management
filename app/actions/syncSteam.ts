@@ -11,7 +11,7 @@ export async function syncSteamGames() {
         const userEmail = session?.user?.email;
 
         if (!userEmail) {
-            return { success: false, error: 'Unauthenticated' };
+            return { success: false, error: 'Unauthenticated. Please sign in.' };
     }
 
     const user = await prisma.user.findUnique({
@@ -40,20 +40,26 @@ export async function syncSteamGames() {
   const steamData = await SteamRes.json();
   const steamGames = steamData.response?.games || [];
 
-  if (steamGames.length === 0) {
-    return { success: true , count: 0, message: 'No games found in Steam account.'};
+  // TEMPORARY FILTER - ONLY SYNC GAMES WITH > 0 MINUTES PLAYED
+  const playedGames = steamGames.filter(
+    (game: { playtime_forever?: number }) => (game.playtime_forever || 0) > 0
+    );
+
+  if (playedGames.length === 0) {
+    return { success: true , count: 0, message: 'No played games found in Steam account.'};
   }
 
   console.log('Syncing ${games.length} Steam games for user ${user.id}...');
 
   // Prepare database upsert operations
-  const upsertOperations = steamGames.map((game: any) => {
+  const upsertOperations = playedGames.map((game: any) => {
     const appId = Number(game.appid);
     const gameTitle = game.name || 'Steam App ${appId}';
-    const coverUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`;
+    const coverUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
 
     // Deremine status based on playtime
     const playtimeMinutes = game.playtime_forever || 0;
+    const playtimeHours = Number((playtimeMinutes / 60).toFixed(1));
     const status = playtimeMinutes > 0 ? 'PLAYED' : 'BACKLOG';
 
     return prisma.gameLog.upsert({
@@ -64,17 +70,21 @@ export async function syncSteamGames() {
             },
         },
         update: {
-            gameTitle,
-            coverUrl,
+            gameTitle: gameTitle,
+            coverUrl: coverUrl,
             // only update status if it was in BACKLOG and now has playtime
-            status,
+            status: status,
+            steamAppId: appId,
+            playtimeHours: playtimeHours,
         },
         create: {
             userId: user.id,
             externalGameId: appId,
-            gameTitle,
-            coverUrl,
-            status
+            gameTitle: gameTitle,
+            coverUrl: coverUrl,
+            status: status,
+            steamAppId: appId,
+            playtimeHours: playtimeHours,
         },
     });
   });

@@ -78,7 +78,7 @@ async function getGameDetails(gameId: string) {
         id: numericId,
         name: `Game ${gameId}`,
         summary: 'No description available for this game',
-        coverUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${gameId}/header.jpg`,
+        coverUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${gameId}/library_600x900.jpg`,
         genres: [],
         platforms: [],
         releaseYear: null,
@@ -92,7 +92,7 @@ async function getGameDetails(gameId: string) {
 
     const coverUrl = game.cover?.url
       ? `https:${game.cover.url.replace('t_thumb', 't_1080p')}`
-      : `https://cdn.cloudflare.steamstatic.com/steam/apps/${gameId}/header.jpg`;
+      : `https://cdn.cloudflare.steamstatic.com/steam/apps/${gameId}/library_600x900.jpg`;
 
     const releaseYear = game.first_release_date
       ? new Date(game.first_release_date * 1000).getFullYear()
