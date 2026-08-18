@@ -67,8 +67,9 @@ model GameLog {
   status     String   // PLAYED, PLAYING, BACKLOG, etc.
   playedOn   DateTime @default(now())
   
-  steamAppId      Int? // Steam AppID (helps bridge Steam & IGDB)
-  externalGameId  Int  // Game ID from external API (like IGDB or RAWG)
+  steamAppId      Int? // Steam AppID (from Steam API)
+  igdbId          Int?  // IGDB Game Id (from search or resolved during sync)
+  externalGameId  Int  // Game ID from external API (like IGDB, Steam, or RAWG)
   gameTitle       String    // cached title for easy display
   coverUrl        String?   // Cached cover image coverUrl
   playtimeHours   Float?  // Total hours synced from Steam

@@ -14,7 +14,20 @@ export async function getPublicProfile(username: string) {
         steamId: true,
         createdAt: true,
         logs: {
-          orderBy: { playedOn: 'desc' },
+            select: {
+                id: true,
+                externalGameId: true,
+                steamAppId: true,
+                igdbId: true,
+                gameTitle: true,
+                coverUrl: true,
+                status: true,
+                rating: true,
+                playtimeHours: true,
+            },
+            orderBy: { 
+                playedOn: 'desc' 
+            },
         },
         lists: {
             where: { isPrivate: false },

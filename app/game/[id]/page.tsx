@@ -10,6 +10,27 @@ interface GamePageProps {
   }>;
 }
 
+function cleanDescription(text: string): string {
+  if (!text) return 'No overview available for this title.';
+
+  return text
+    // 1. Convert HTML line breaks to standard newlines
+    .replace(/<br\s*[\/]?>/gi, '\n')
+    // 2. Strip out all remaining HTML tags (e.g. <p>, <strong>, <div>)
+    .replace(/<[^>]*>/g, '')
+    // 3. Strip BBCode tags (e.g. [b], [/b], [i], [h1])
+    .replace(/\[\/?\w+\]/g, '')
+    // 4. Decode common HTML entities
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#39;/g, "'")
+    // 5. Trim duplicate line breaks and whitespace
+    .replace(/\n\s*\n/g, '\n\n')
+    .trim();
+}
+
 // 1. TOP-LEVEL HELPER FUNCTION (Outside component body)
 async function getGameDetails(gameId: string) {
   try {
@@ -41,7 +62,7 @@ async function getGameDetails(gameId: string) {
       return null;
     }
 
-    const accessToken = tokenData.access_token.replace(/['"\s]/g, '');
+    const accessToken = tokenData.access_token;
 
     const headers = {
       'Client-ID': clientId.trim(),
@@ -49,39 +70,77 @@ async function getGameDetails(gameId: string) {
       'Content-Type': 'text/plain',
     };
 
-    // Try fetching directly by IGDB ID
-    let igdbRes = await fetch('https://api.igdb.com/v4/games', {
-      method: 'POST',
-      headers,
-      body: `fields name, summary, cover.url, first_release_date, genres.name, platforms.name; where id = ${numericId};`,
-    });
+    let game: any = null;
 
-    let games = await igdbRes.json();
+    // Steam App IDs are usually 7+ digits
+    // If < 1,000,000 its almost certainly a direct IGDB game Id (???)
+    const isLikelyIgdbId = numericId < 1000000;
 
-    if (igdbRes.status === 401 || (games && games.message?.includes('Authorization Failure'))) {
-      console.error('IGDB Rejected Token/Headers:', games);
-      return null;
-    }
-
-    // if direct ID lookup fails or returns empty, query IGDB by steam id
-    if (!Array.isArray(games) || games.length === 0 || 'cause' in games) {
-      const steamLookupRes = await fetch('https://api.igdb.com/v4/external_games', {
+    if (isLikelyIgdbId) {
+      // Query direct IGDB first
+      const igdbRes = await fetch('https://api.igdb.com/v4/games', {
         method: 'POST',
         headers,
-        body: `fields game.id, game.name, game.summary, game.cover.url, game.first_release_date, game.genres.name, game.platforms.name; where uid = ${gameId} & category = 1;`,
+        cache: 'no-store',
+        body: `fields name, summary, cover.url, first_release_date, genres.name, platforms.name; where id = ${numericId};`,
       });
 
-      const externalGames = await steamLookupRes.json();
 
-      if (Array.isArray(externalGames) && externalGames.length > 0 && externalGames[0]?.game) {
-        games = [externalGames[0].game];
+      const games = await igdbRes.json();
+      if (Array.isArray(games) && games.length > 0 && !('cause' in games)) {
+        game = games[0]
       }
     }
 
-    const game = Array.isArray(games) && games.length > 0 ? games[0] : null;
+    // If its a 7-digit Id or the direct IGDB lookup didnt find anything, try IDGB Steam lookup
+    if (!game) {
+      const steamLookupRes = await fetch('https://api.igdb.com/v4/external_games', {
+        method: 'POST',
+        headers,
+        cache: 'no-store',
+        body: `fields game.id, game.name, game.summary, game.cover.url, game.first_release_date, game.genres.name, game.platforms.name; where uid = ${gameId} & external_game_source = 1;`,
+      });
+
+      const externalGames = await steamLookupRes.json();
+      if (Array.isArray(externalGames) && externalGames.length > 0 && externalGames[0]?.game) {
+        // Match found via steam app Id!
+        game = [externalGames[0].game];
+      }
+    }
+
+    // STEAM API DIRECT FALLBACK (For indie/new games not mapped in IGDB)
 
     // Hard Fallback: if IGDB has no record, construct a basic game object
     if (!game || !game.name) {
+      try {
+        const steamStoreRes = await fetch(
+          `https://store.steampowered.com/api/appdetails?appids=${gameId}`,
+          { cache: 'no-store' }
+        );
+        const steamStoreData = await steamStoreRes.json();
+
+        if (steamStoreData?.[gameId]?.success) {
+          const steamDetails = steamStoreData[gameId].data;
+          const rawSummary = steamDetails.about_the_game || steamDetails.short_description || '';
+
+          return {
+            id: numericId,
+            name: steamDetails.name,
+            summary: cleanDescription(rawSummary),
+            //summary: steamDetails.about_the_game || steamDetails.short_description || 'No description available.',
+            coverUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${gameId}/library_600x900.jpg`,
+            genres: steamDetails.genres?.map((g: any) => g.description) || [],
+            platforms: ['PC'],
+            releaseYear: steamDetails.release_date?.date
+              ? new Date(steamDetails.release_date.date).getFullYear() || null
+              : null
+          };
+        }
+      } catch (e) {
+        console.error('Steam Store API Fallback Failed:', e);
+      }
+
+      // Final emergency fallback
       return {
         id: numericId,
         name: `Game ${gameId}`,
@@ -106,7 +165,7 @@ async function getGameDetails(gameId: string) {
     const platforms = game.platforms?.map((p: any) => p.name) || [];
 
     return {
-      id: game.id,
+      id: game.id || numericId,
       name: game.name,
       summary: game.summary || 'No description available for this game.',
       coverUrl,
@@ -215,16 +274,16 @@ export default async function GameDetailsPage({ params }: GamePageProps) {
         </div>
       </div>
 
-        {/* Client Interactive Log Button */}
-          <div className="justify-content: flex-end">
-            <LogGameButton
-              game={{
-                id: game.id,
-                name: game.name,
-                coverUrl: game.coverUrl,
-              }}
-            />
-        </div>
+      {/* Client Interactive Log Button */}
+      <div className="justify-content: flex-end">
+        <LogGameButton
+          game={{
+            id: game.id,
+            name: game.name,
+            coverUrl: game.coverUrl,
+          }}
+        />
+      </div>
 
     </main>
   );
