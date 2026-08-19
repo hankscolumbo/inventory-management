@@ -13,6 +13,7 @@ interface GameLog {
   status: string;
   rating?: number | null;
   playtimeHours?: number | null;
+  igdbId?: number | null;
 }
 
 export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
@@ -95,12 +96,15 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {paginatedLogs.map((log) => {
-            const appId = log.steamAppId || log.externalGameId;
+            // 1. Prefer IGDB Game Id
+            // 2. Gall back to steamAppId / externalGameId only if igdbId is null
+            const targetId = log.igdbId || log.steamAppId || log.externalGameId;
+            //const appId = log.steamAppId || log.externalGameId;
 
             return (
               <Link
                 key={log.id}
-                href={`/game/${log.externalGameId}`}
+                href={`/game/${targetId}`}
                 className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden hover:border-purple-500/50 hover:scale-[1.02] transition duration-200 flex flex-col group shadow-lg"
               >
                 <div className="aspect-[3/4] w-full bg-slate-950 relative overflow-hidden">
@@ -112,8 +116,8 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         // Prevent infinite re-trigger loop if fallback also fails
-                        if (appId && !target.src.includes('header.jpg')) {
-                          target.src = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`;
+                        if (targetId && !target.src.includes('library_600x900.jpg')) {
+                          target.src = `https://cdn.cloudflare.steamstatic.com/steam/apps/${targetId}/library_600x900.jpg`;
                         }
                       }}
                     />
