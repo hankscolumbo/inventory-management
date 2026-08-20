@@ -17,6 +17,7 @@ interface LogInput {
   review: string;
   status: 'PLAYED' | 'PLAYING' | 'WANT TO PLAY' | 'BACKLOG';
   playtimeHours?: number | null;
+  isOwned?: boolean;
 }
 
 export async function logGame(data: LogInput) {
@@ -54,6 +55,8 @@ export async function logGame(data: LogInput) {
       return { success: false, error: 'Invalid Game ID.'};
     }
 
+    const isOwned = Boolean(data.isOwned);
+
     const log = await prisma.gameLog.upsert({
       where: {
         userId_externalGameId: {
@@ -70,6 +73,7 @@ export async function logGame(data: LogInput) {
       playedOn: new Date(),
       playtimeHours: data.playtimeHours ?? null,
       igdbId: numericGameId,
+      isOwned,
     },
     create: {
       userId: user.id,
@@ -81,6 +85,7 @@ export async function logGame(data: LogInput) {
       review: data.review ?? null,
       status: data.status,
       playtimeHours: data.playtimeHours ?? null,
+      isOwned,
     },
   });
 

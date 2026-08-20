@@ -31,8 +31,8 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
             .filter((log) => {
                 const matchesTab = activeTab === 'ALL' || log.status === activeTab;
                 const matchesSearch = log.gameTitle.toLowerCase().includes(search.toLowerCase());
-                //const matchesOwned = showOwnedOnly ? Boolean(log.isOwned) : true;
-                return matchesTab && matchesSearch;
+                const matchesOwned = showOwnedOnly ? Boolean(log.isOwned) : true;
+                return matchesTab && matchesSearch && matchesOwned;
             })
             .sort((a, b) => {
                 if (sortBy === 'TITLE') return a.gameTitle.localeCompare(b.gameTitle);
@@ -40,7 +40,7 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
                 if (sortBy === 'PLAYTIME') return (b.playtimeHours || 0) - (a.playtimeHours || 0);
                 return 0; // Default order
             });
-    }, [logs, search, activeTab, sortBy]);
+    }, [logs, search, activeTab, sortBy, showOwnedOnly]);
 
     // Paginate list
     const totalPages = Math.ceil(filteredLogs.length / ITEMS_PER_PAGE);
