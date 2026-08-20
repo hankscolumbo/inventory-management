@@ -1,7 +1,7 @@
 // app/actions/syncSteam.ts
 'use server';
 
-import { auth } from '@/app/api/auth/[...nextauth]/route';
+import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
@@ -35,7 +35,7 @@ async function getIgdbIdsForSteamApps(
                 'Content-Type': 'text/plain',
             },
             cache: 'no-store',
-            body: `fields uid, game; where uid = (${formattedUids}) & category = 1; limit 500;`,
+            body: `fields uid, game; where uid = (${formattedUids}) & external_game_source = 1; limit 500;`,
         });
 
         const extData = await extRes.json();
@@ -75,13 +75,10 @@ async function getIgdbIdsForSteamApps(
 
         if (Array.isArray(gamesData)) {
             gamesData.forEach((game: any) => {
-                //if (game.uid && game.game) {
-                //const appId = Number(game.uid);
                 const rawCover = game.cover?.url;
                 const coverUrl = rawCover
                     ? `https:${rawCover.replace('t_thumb', 't_1080p')}`
                     : '';
-                //: `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
                 igdbGameDetailsMap[Number(game.id)] = {
                     name: game.name,
                     coverUrl,
@@ -113,79 +110,6 @@ async function getIgdbIdsForSteamApps(
     }
 }
 
-/* Fetch Wishlist App IDs from Steam
-
-async function getSteamWishlist(steamId: string, apiKey: string) {
-    try {
-        // 1. Fetch wishlist from Steam's Web API
-        const url = `https://api.steampowered.com/IWishlistService/GetWishlist/v1/?key=${apiKey}&steamid=${steamId}`;
-
-        const res = await fetch(url, { cache: 'no-store' });
-
-        if (!res.ok) {
-            console.warn(`[Steam Wishlist API] HTTP ${res.status} returned from Steam API.`);
-            return [];
-        }
-
-        // 2. Guard: Verify response is JSON before parsing to prevent HTML crash
-        const contentType = res.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-            console.warn(
-                '[Steam Wishlist API] Steam returned HTML instead of JSON. Wishlist may be restricted or private.'
-            );
-            return [];
-        }
-
-        const data = await res.json();
-        const items = data?.response?.items || [];
-
-        if (!Array.isArray(items) || items.length === 0) {
-            console.log('[Steam Wishlist API] No wishlist items found or user wishlist is private.');
-            return [];
-        }
-
-        // 3. Extract items
-        const wishlistItems = items.map((item: any) => ({
-            appid: Number(item.appid),
-            name: '',
-        }));
-
-        console.log(`[Steam Wishlist API] Successfully fetched ${wishlistItems.length} items.`);
-        return wishlistItems;
-    } catch (error) {
-        console.error('[Steam Wishlist API] Error:', error);
-        return [];
-    }
-}
-
-// Helper: Batch resolve missing game titles from Steam Store API
- async function fetchSteamStoreTitles(appIds: number[]): Promise<Record<number, string>> {
-    if (appIds.length === 0) return {};
-    const titlesMap: Record<number, string> = {};
-
-    // Fetch concurrently in small batches to avoid rate limits
-    await Promise.all(
-        appIds.map(async (appId) => {
-            try {
-                const res = await fetch(
-                    `https://store.steampowered.com/api/appdetails?appids=${appId}&filters=basic`,
-                    { cache: 'no-store' }
-                );
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data?.[appId]?.success && data[appId].data?.name) {
-                        titlesMap[appId] = data[appId].data.name;
-                    }
-                }
-            } catch (e) {
-                // Fallback silently if Steam API limits
-            }
-        })
-    );
-
-    return titlesMap;
-}
-*/
 export async function syncSteamGames() {
     try {
         const session = await auth();
@@ -229,34 +153,8 @@ export async function syncSteamGames() {
             (game: { playtime_forever?: number }) => (game.playtime_forever || 0) > 0
         );
 
-        /* Fetch Wishlist games from Steam Store API
-        const wishlistGames = await getSteamWishlist(user.steamId, STEAM_API_KEY);
-        console.log(`[Steam Sync] Found ${playedGames.length} played games and ${wishlistGames.length} wishlist items.`);
-
-        // Filter out games that the user already owns/has played
-        const playedAppIds = new Set(playedGames.map((g: any) => Number(g.appid)));
-        const uniqueWishlistGames = wishlistGames.filter(
-            (g) => !playedAppIds.has(g.appid)
-        );
-        // Combine both lists
-        const allGamesToSync = [
-            ...playedGames.map((g: any) => ({
-                appid: Number(g.appid),
-                name: g.name || '',
-                playtimeMinutes: g.playtime_forever || 0,
-                isWishlist: false,
-            })),
-            ...uniqueWishlistGames.map((g) => ({
-                appid: g.appid,
-                name: '',
-                playtimeMinutes: 0,
-                isWishlist: true,
-            })),
-        ];
-        */
-        const allGamesToSync = playedGames;
-        if (allGamesToSync.length === 0) {
-            return { success: true, count: 0, message: 'No games found.' };
+        if (playedGames.length === 0) {
+            return { success: true, count: 0, message: 'No games found on Steam.' };
         }
         
         const twitchToken = await getTwitchToken(TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET);
@@ -265,8 +163,8 @@ export async function syncSteamGames() {
         const CHUNK_SIZE = 30;
         let savedCount = 0;
 
-        for (let i = 0; i < allGamesToSync.length; i += CHUNK_SIZE) {
-            const chunk = allGamesToSync.slice(i, i + CHUNK_SIZE);
+        for (let i = 0; i < playedGames.length; i += CHUNK_SIZE) {
+            const chunk = playedGames.slice(i, i + CHUNK_SIZE);
             const chunkAppIds = chunk.map((g: any) => Number(g.appid));
 
             // Perform one batch request per chunk to resolve IGDB IDs
@@ -278,7 +176,7 @@ export async function syncSteamGames() {
 
             // Map ONLY the active chunk into database upserts
             const upsertOperations = chunk.map((game: any) => {
-                const appId = game.appid;
+                const appId = Number(game.appid);
                 const igdbInfo = igdbDetailsMap[appId];
 
                 // If IGDB resolved the title, use it. otherwise use steam api name or fallback
@@ -288,9 +186,11 @@ export async function syncSteamGames() {
                     `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
 
                 // Deremine status based on playtime
-                const playtimeHours = Number((game.playtimeMinutes / 60).toFixed(1));
-                const targetStatus = game.isWishlist ? 'WANT TO PLAY' : 'PLAYED';
-                const resolvedIgdbId = igdbInfo?.igdbId || null;
+                const rawMinutes = typeof game.playtime_forever === 'number' ? game.playtime_forever : 0;
+                const playtimeHours = Number((rawMinutes / 60).toFixed(1));
+
+                
+                const resolvedIgdbId = igdbInfo?.igdbId ? Number(igdbInfo.igdbId) : null;
 
                 return prisma.gameLog.upsert({
                     where: {
@@ -304,16 +204,16 @@ export async function syncSteamGames() {
                         coverUrl,
                         steamAppId: appId,
                         playtimeHours,
-                        status: targetStatus,
-                        ...(!game.isWishlist ? { status: 'PLAYED' } : {}),
-                        ...(resolvedIgdbId ? { igdbId: resolvedIgdbId } : {}),
+                        status: 'PLAYED',
+                        isOwned: true,
+                        igdbId: resolvedIgdbId,
                     },
                     create: {
                         userId: user.id,
                         externalGameId: appId,
                         gameTitle,
                         coverUrl,
-                        status: targetStatus,
+                        status: 'PLAYED',
                         steamAppId: appId,
                         playtimeHours,
                         igdbId: resolvedIgdbId,

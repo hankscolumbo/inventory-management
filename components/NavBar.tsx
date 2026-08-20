@@ -1,5 +1,5 @@
 // components/Navbar.tsx
-import { auth, signIn, signOut } from '@/app/api/auth/[...nextauth]/route';
+import { auth } from '@/lib/auth';
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 

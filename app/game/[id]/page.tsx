@@ -31,24 +31,17 @@ function cleanDescription(text: string): string {
     .trim();
 }
 
-// 1. TOP-LEVEL HELPER FUNCTION (Outside component body)
-async function getGameDetails(gameId: string) {
+async function getTwitchToken(): Promise<string | null> {
+  const clientId = process.env.TWITCH_CLIENT_ID?.trim();
+  const clientSecret = process.env.TWITCH_CLIENT_SECRET?.trim();
+
+  if (!clientId || !clientSecret) {
+    console.error('[IGDB Auth Error] Missing Twitch Client ID or Twitch Client Secret');
+    return null;
+  }
+
+  // Get Twitch OAuth Token
   try {
-    const numericId = Number(gameId);
-    if (isNaN(numericId)) return null;
-
-    const rawClientId = process.env.TWITCH_CLIENT_ID?.trim() || '';
-    const rawClientSecret = process.env.TWITCH_CLIENT_SECRET?.trim() || '';
-
-    const clientId = rawClientId.replace(/['"\s]/g, '');
-    const clientSecret = rawClientSecret.replace(/['"\s]/g, '');
-
-    if (!clientId || !clientSecret) {
-      console.error('Missing Twitch Client ID or Twitch Client Secret');
-      return null;
-    }
-
-    // Get Twitch OAuth Token
     const tokenRes = await fetch(
       `https://id.twitch.tv/oauth2/token?client_id=${clientId}&client_secret=${clientSecret}&grant_type=client_credentials`,
       { method: 'POST', cache: 'no-store' }
@@ -61,88 +54,109 @@ async function getGameDetails(gameId: string) {
       console.error('Twitch token request failed:', tokenData);
       return null;
     }
-
     const accessToken = tokenData.access_token;
+    return accessToken;
+  } catch (err) {
+    console.error('[Twitch OAuth Exception]:', err);
+    return null;
+  }
+}
+
+async function getGameDetails(gameId: string) {
+  try {
+    const numericId = Number(gameId);
+    if (isNaN(numericId)) return null;
+
+    const clientId = process.env.TWITCH_CLIENT_ID?.trim();
+    const token = await getTwitchToken();
+
+    if (!clientId || !token) return null;
 
     const headers = {
       'Client-ID': clientId.trim(),
-      'Authorization': `Bearer ${accessToken}`,
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'text/plain',
     };
 
     let game: any = null;
 
-     try {
-        const igdbRes = await fetch('https://api.igdb.com/v4/games', {
-          method: 'POST',
-          headers,
-          cache: 'no-store',
-          body: `fields name, summary, cover.url, first_release_date, genres.name, platforms.name; where id = ${numericId};`,
-        });
-
-        if (igdbRes.ok) {
-          const games = await igdbRes.json();
-          if (Array.isArray(games) && games.length > 0 && ! ('cause' in games)) {
-            game = games[0];
-        }
-      }
-    } catch (e) {
-      console.error('[IGDB Games Direct Lookup Error:', e);
-    }
-
-    // If the direct IGDB lookup didnt find anything, try IDGB Steam lookup
-    if (!game) {
-      try {
-        const externalRes = await fetch('https://api.igdb.com/v4/games', {
+    // STEP 1: DIRECT IGDB GAME ID TO LOOKUP
+    try {
+      const igdbRes = await fetch('https://api.igdb.com/v4/games', {
         method: 'POST',
         headers,
         cache: 'no-store',
-        body: `fields name, summary, cover.url, first_release_date, genres.name, platforms.name; where uid = "${gameId}" & category = 1; limit 1;`,
+        body: `fields name, summary, cover.url, first_release_date, genres.name, platforms.name; where id = ${numericId};`,
       });
 
-      if (externalRes.ok) {
-        const externalData = await externalRes.json();
-        if (Array.isArray(externalData) && externalData.length > 0 && externalData[0].game) {
-        game = externalData[0].game;
+      if (igdbRes.ok) {
+        const games = await igdbRes.json();
+        if (Array.isArray(games) && games.length > 0) {
+          game = games[0];
+        }
+      } else {
+        console.error('[IGDB Games Direct Lookup Rejected:', await igdbRes.text());
       }
-    }
     } catch (e) {
-      console.error('[IGDB Games Direct Lookup Error:', e);
+      console.error('[IGDB Direct Lookup Exception]:', e);
     }
 
-    // Hard Fallback: if IGDB has no record, Steam Store fallback
-    if (!game || !game.name) {
+    // STEP 2: If the direct IGDB lookup didnt find anything, try IDGB Steam lookup
+    if (!game) {
+      try {
+        const externalRes = await fetch('https://api.igdb.com/v4/external_games', {
+          method: 'POST',
+          headers,
+          cache: 'no-store',
+          body: `fields game.id, game.name, game.summary, game.cover.url, game.first_release_date, game.genres.name, game.platforms.name; where uid = "${gameId}" & external_game_source = 1; limit 1;`,
+        });
+
+        if (externalRes.ok) {
+          const externalData = await externalRes.json();
+          if (Array.isArray(externalData) && externalData.length > 0 && externalData[0]?.game) {
+            game = externalData[0].game;
+          }
+        }
+      } catch (e) {
+        console.error('[IGDB Games Direct Lookup Error:', e);
+      }
+    }
+
+    // STEP 3: Steam Store API Fallback (for unmapped indie games)      
+    if (!game) {
       try {
         const steamStoreRes = await fetch(
           `https://store.steampowered.com/api/appdetails?appids=${gameId}`,
           { cache: 'no-store' }
         );
-        const steamStoreData = await steamStoreRes.json();
+        if (steamStoreRes.ok) {
+          const steamStoreData = await steamStoreRes.json();
+          if (steamStoreData?.[gameId]?.success) {
+            const steamDetails = steamStoreData[gameId].data;
+            const rawSummary = steamDetails.short_description || steamDetails.about_the_game || '';
 
-        if (steamStoreData?.[gameId]?.success) {
-          const steamDetails = steamStoreData[gameId].data;
-          const rawSummary = steamDetails.about_the_game || steamDetails.short_description || '';
-
-          return {
-            id: numericId,
-            name: steamDetails.name,
-            summary: cleanDescription(rawSummary),
-            coverUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${gameId}/library_600x900.jpg`,
-            genres: Array.isArray(steamDetails.genres)
-              ? steamDetails.genres?.map((g: any) => g.description)
-              : [],
-            platforms: ['PC'],
-            releaseYear: steamDetails.release_date?.date
-              ? new Date(steamDetails.release_date.date).getFullYear() || null
-              : null
-          };
+            return {
+              id: numericId,
+              name: steamDetails.name,
+              summary: cleanDescription(rawSummary),
+              coverUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${gameId}/library_600x900.jpg`,
+              genres: Array.isArray(steamDetails.genres)
+                ? steamDetails.genres?.map((g: any) => g.description)
+                : [],
+              platforms: ['PC'],
+              releaseYear: steamDetails.release_date?.date
+                ? new Date(steamDetails.release_date.date).getFullYear() || null
+                : null
+            };
+          }
         }
       } catch (e) {
         console.error('Steam Store API Fallback Failed:', e);
       }
-
-      if (!game) return null;
     }
+
+    // Return only if all 3 lookup strategies fail
+    if (!game) return null;
 
     const coverUrl = game.cover?.url
       ? `https:${game.cover.url.replace('t_thumb', 't_1080p')}`
@@ -152,22 +166,25 @@ async function getGameDetails(gameId: string) {
       ? new Date(game.first_release_date * 1000).getFullYear()
       : null;
 
-    const genres = game.genres?.map((g: { name: string }) => g.name).join(', ') || 'Game';
+    const genres = Array.isArray(game.genres)
+      ? game.genres?.map((g: { name: string }) => g.name)
+      : [];
 
-    const platforms = game.platforms?.map((p: any) => p.name) || [];
+    const platforms = Array.isArray(game.platforms)
+      ? game.platforms?.map((p: any) => p.name)
+      : [];
 
     return {
       id: game.id || numericId,
-      name: game.name,
-      summary: game.summary || 'No description available for this game.',
+      name: game.name || 'Untitled Game',
+      summary: cleanDescription(game.summary) || 'No description available for this game.',
       coverUrl,
       releaseYear,
       genres,
       platforms,
     };
-  }
-  } catch (error) {
-    console.error('Error fetching IGDB details:', error);
+  } catch (err) {
+    console.error('Error getching game details:', err);
     return null;
   }
 }
@@ -294,7 +311,7 @@ export default async function GameDetailsPage({ params }: GamePageProps) {
       </div>
 
       {/* Client Interactive Log Button */}
-      <div className="justify-content: flex-end">
+      <div className="flex justify-end">
         <LogGameButton
           game={{
             id: game.id,

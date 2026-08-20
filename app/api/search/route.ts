@@ -47,10 +47,11 @@ export async function GET(request: Request) {
     }
 
     const sanitizedQuery = query.replace(/"/g, '').trim();
+    const searchQuery = `${sanitizedQuery}*`;
     const numericLimit: number = limit ? parseInt(limit, 10) : 50;
     const fetchLimit = Math.min(numericLimit * 2, 100);
 
-    const bodyPayload = `search "${sanitizedQuery}"; fields name, cover.url, first_release_date, hypes, follows, rating_count, version_parent.id, parent_game.id; limit ${fetchLimit};`;
+    const bodyPayload = `search "${searchQuery}"; fields name, cover.url, first_release_date, hypes, follows, rating_count, version_parent.id, parent_game.id; limit ${fetchLimit};`;
 
     // 2. Query IGDB for games matching query
     const igdbRes = await fetch('https://api.igdb.com/v4/games', {

@@ -31,7 +31,7 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
             .filter((log) => {
                 const matchesTab = activeTab === 'ALL' || log.status === activeTab;
                 const matchesSearch = log.gameTitle.toLowerCase().includes(search.toLowerCase());
-                const matchesOwnes = showOwnedOnly ? Boolean(log.isOwned) : true;
+                //const matchesOwned = showOwnedOnly ? Boolean(log.isOwned) : true;
                 return matchesTab && matchesSearch;
             })
             .sort((a, b) => {

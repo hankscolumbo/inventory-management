@@ -2,8 +2,7 @@
 import { getPublicProfile } from '@/lib/getPublicProfile';
 import { notFound } from 'next/navigation';
 import ProfileGameGrid from './ProfileGameGrid';
-import { auth } from '@/app/api/auth/[...nextauth]/route';
-import SyncSteamButton from '@/components/SyncSteamButton';
+import { auth } from '@/lib/auth';
 import SignOutButton from '@/components/SignOutButton';
 import SteamSyncSection from './SteamSyncSection';
 
@@ -83,7 +82,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
                             <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Playing</span>
                         </div>
                         <div className="border-l border-slate-800 pl-6">
-                            <span className="font-extrabold text-cyan-400 text-lg block">{playingCount}</span>
+                            <span className="font-extrabold text-cyan-400 text-lg block">{wantToPlayCount}</span>
                             <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Want To Play</span>
                         </div>
                         <div className="border-l border-slate-800 pl-6">
