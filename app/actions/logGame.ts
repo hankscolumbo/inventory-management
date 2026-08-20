@@ -14,7 +14,7 @@ interface LogInput {
   coverUrl?: string;
   rating: number;
   review: string;
-  status: 'PLAYED' | 'PLAYING' | 'BACKLOG';
+  status: 'PLAYED' | 'PLAYING' | 'WANT TO PLAY' | 'BACKLOG';
 }
 
 export async function logGame(data: LogInput) {

@@ -14,37 +14,54 @@ interface IGDBGame {
 }
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const query = searchParams.get('q');
-  const limit = searchParams.get('limit'); // default to 50 results for full grid
-
-  if (!query || !query.trim()) {
-    return NextResponse.json([]);
-  }
-
   try {
+    const { searchParams } = new URL(request.url);
+    const query = searchParams.get('q');
+    const limit = searchParams.get('limit'); // default to 50 results for full grid
+
+    if (!query || query.trim().length === 0) {
+        return NextResponse.json({ results: [] });
+    }
+
+    const clientId = process.env.TWITCH_CLIENT_ID?.trim();
+    const clientSecret = process.env.TWITCH_CLIENT_SECRET?.trim();
+
+    if (!clientId || !clientSecret) {
+        console.error('[Search API] Missing Twitch environment variables');
+        return NextResponse.json({ error: 'Missing Twitch credentials' }, { status: 500 });
+    }
+
     // 1. Fetch OAuth Access Token
     const tokenRes = await fetch(
-      `https://id.twitch.tv/oauth2/token?client_id=${process.env.TWITCH_CLIENT_ID}&client_secret=${process.env.TWITCH_CLIENT_SECRET}&grant_type=client_credentials`,
-      { method: 'POST' }
+      `https://id.twitch.tv/oauth2/token?client_id=${clientId}&client_secret=${clientSecret}&grant_type=client_credentials`,
+      { method: 'POST', cache: 'no-store' }
     );
 
-    if (!tokenRes.ok) return NextResponse.json([], { status: 500 });
+    //if (!tokenRes.ok) return NextResponse.json([], { status: 500 });
     const tokenData = await tokenRes.json();
+    const accessToken = tokenData.access_token;
 
-    const sanitizedQuery = query.replace(/"/g, '\\"');
+    if (!accessToken) {
+        console.error('[Search API] Twitch token authentication failed:', tokenData);
+        return NextResponse.json({ error: 'Twitch authentication failed' }, { status: 401 });
+    }
+
+    const sanitizedQuery = query.replace(/"/g, '').trim();
     const numericLimit: number = limit ? parseInt(limit, 10) : 50;
     const fetchLimit = Math.min(numericLimit * 2, 100);
+
+    const bodyPayload = `search "${sanitizedQuery}"; fields name, cover.url, first_release_date, hypes, follows, rating_count, version_parent.id, parent_game.id; limit ${fetchLimit};`;
 
     // 2. Query IGDB for games matching query
     const igdbRes = await fetch('https://api.igdb.com/v4/games', {
       method: 'POST',
       headers: {
-        'Client-ID': process.env.TWITCH_CLIENT_ID!,
-        Authorization: `Bearer ${tokenData.access_token}`,
+        'Client-ID': clientId,
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'text/plain',
       },
-      body: `search "${sanitizedQuery}"; fields name, cover.url, first_release_date, hypes, follows, rating_count, version_parent, parent_game; limit ${fetchLimit};`,
+      cache: 'no-store',
+      body: bodyPayload,
     });
 
     if (!igdbRes.ok) {
@@ -97,9 +114,9 @@ export async function GET(request: Request) {
         : null,
     }));
 
-    return NextResponse.json(formatted);
+   return NextResponse.json(formatted);
   } catch (error) {
-    console.error('Search API Error:', error);
-    return NextResponse.json([], { status: 500 });
+    console.error('[Search API Error]:', error);
+    return NextResponse.json({ error: 'Internal server error during search' }, { status: 500 });
   }
 }

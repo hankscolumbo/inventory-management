@@ -61,21 +61,22 @@ model VerificationToken {
 }
 
 model GameLog {
-  id         String   @id @default(cuid())
-  rating     Float?   // e.g., 4.5 out of 5
-  review     String?  @db.Text
-  status     String   // PLAYED, PLAYING, BACKLOG, etc.
-  playedOn   DateTime @default(now())
+  id              String   @id @default(cuid())
+  rating          Float?                    // e.g., 4.5 out of 5
+  review          String?  @db.Text
+  status          String                    // PLAYED, PLAYING, BACKLOG, etc.
+  playedOn        DateTime @default(now())
   
-  steamAppId      Int? // Steam AppID (from Steam API)
-  igdbId          Int?  // IGDB Game Id (from search or resolved during sync)
-  externalGameId  Int  // Game ID from external API (like IGDB, Steam, or RAWG)
-  gameTitle       String    // cached title for easy display
-  coverUrl        String?   // Cached cover image coverUrl
-  playtimeHours   Float?  // Total hours synced from Steam
+  steamAppId      Int?                      // Steam AppID (from Steam API)
+  igdbId          Int?                      // IGDB Game Id (from search or resolved during sync)
+  externalGameId  Int                       // Game ID from external API (like IGDB, Steam, or RAWG)
+  gameTitle       String                    // cached title for easy display
+  coverUrl        String?                   // Cached cover image coverUrl
+  playtimeHours   Float?  @default(0)       // Total hours synced from Steam
+  isOwned         Boolean @default(false)
 
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, externalGameId])
 }

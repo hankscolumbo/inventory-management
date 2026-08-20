@@ -72,45 +72,45 @@ async function getGameDetails(gameId: string) {
 
     let game: any = null;
 
-    // Steam App IDs are usually 7+ digits
-    // If < 1,000,000 its almost certainly a direct IGDB game Id (???)
-    const isLikelyIgdbId = numericId < 1000000;
+     try {
+        const igdbRes = await fetch('https://api.igdb.com/v4/games', {
+          method: 'POST',
+          headers,
+          cache: 'no-store',
+          body: `fields name, summary, cover.url, first_release_date, genres.name, platforms.name; where id = ${numericId};`,
+        });
 
-    if (isLikelyIgdbId) {
-      // Query direct IGDB first
-      const igdbRes = await fetch('https://api.igdb.com/v4/games', {
-        method: 'POST',
-        headers,
-        cache: 'no-store',
-        body: `fields name, summary, cover.url, first_release_date, genres.name, platforms.name; where id = ${numericId};`,
-      });
-
-
-      const games = await igdbRes.json();
-      if (Array.isArray(games) && games.length > 0 && !('cause' in games)) {
-        game = games[0]
+        if (igdbRes.ok) {
+          const games = await igdbRes.json();
+          if (Array.isArray(games) && games.length > 0 && ! ('cause' in games)) {
+            game = games[0];
+        }
       }
+    } catch (e) {
+      console.error('[IGDB Games Direct Lookup Error:', e);
     }
 
-    // If its a 7-digit Id or the direct IGDB lookup didnt find anything, try IDGB Steam lookup
+    // If the direct IGDB lookup didnt find anything, try IDGB Steam lookup
     if (!game) {
-      const steamLookupRes = await fetch('https://api.igdb.com/v4/external_games', {
+      try {
+        const externalRes = await fetch('https://api.igdb.com/v4/games', {
         method: 'POST',
         headers,
         cache: 'no-store',
-        body: `fields game.id, game.name, game.summary, game.cover.url, game.first_release_date, game.genres.name, game.platforms.name; where uid = ${gameId} & external_game_source = 1;`,
+        body: `fields name, summary, cover.url, first_release_date, genres.name, platforms.name; where uid = "${gameId}" & category = 1; limit 1;`,
       });
 
-      const externalGames = await steamLookupRes.json();
-      if (Array.isArray(externalGames) && externalGames.length > 0 && externalGames[0]?.game) {
-        // Match found via steam app Id!
-        game = [externalGames[0].game];
+      if (externalRes.ok) {
+        const externalData = await externalRes.json();
+        if (Array.isArray(externalData) && externalData.length > 0 && externalData[0].game) {
+        game = externalData[0].game;
       }
     }
+    } catch (e) {
+      console.error('[IGDB Games Direct Lookup Error:', e);
+    }
 
-    // STEAM API DIRECT FALLBACK (For indie/new games not mapped in IGDB)
-
-    // Hard Fallback: if IGDB has no record, construct a basic game object
+    // Hard Fallback: if IGDB has no record, Steam Store fallback
     if (!game || !game.name) {
       try {
         const steamStoreRes = await fetch(
@@ -127,9 +127,10 @@ async function getGameDetails(gameId: string) {
             id: numericId,
             name: steamDetails.name,
             summary: cleanDescription(rawSummary),
-            //summary: steamDetails.about_the_game || steamDetails.short_description || 'No description available.',
             coverUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${gameId}/library_600x900.jpg`,
-            genres: steamDetails.genres?.map((g: any) => g.description) || [],
+            genres: Array.isArray(steamDetails.genres)
+              ? steamDetails.genres?.map((g: any) => g.description)
+              : [],
             platforms: ['PC'],
             releaseYear: steamDetails.release_date?.date
               ? new Date(steamDetails.release_date.date).getFullYear() || null
@@ -140,16 +141,7 @@ async function getGameDetails(gameId: string) {
         console.error('Steam Store API Fallback Failed:', e);
       }
 
-      // Final emergency fallback
-      return {
-        id: numericId,
-        name: `Game ${gameId}`,
-        summary: 'No description available for this game',
-        coverUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${gameId}/library_600x900.jpg`,
-        genres: [] as string[],
-        platforms: [] as string[],
-        releaseYear: null as number | null,
-      };
+      if (!game) return null;
     }
 
     const coverUrl = game.cover?.url
@@ -173,6 +165,7 @@ async function getGameDetails(gameId: string) {
       genres,
       platforms,
     };
+  }
   } catch (error) {
     console.error('Error fetching IGDB details:', error);
     return null;
@@ -215,12 +208,38 @@ export default async function GameDetailsPage({ params }: GamePageProps) {
 
         {/* Game Information & Stats */}
         <div className="md:col-span-2 space-y-6">
-          <div>
+          {/* Header / Meta Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-4 w-full border-b border-slate-800 pb-4">
             <h1 className="text-3xl font-extrabold text-white">{game.name}</h1>
-            <p className="text-sm text-slate-400 mt-1">
-              {game.releaseYear ? `${game.releaseYear} • ` : ''}{game.genres}
-            </p>
+            {/* Left Side: Genre Badges */}
+            <div className="flex flex-wrap items-center gap-2">
+              {Array.isArray(game.genres) && game.genres.length > 0 ? (
+                game.genres.map((genre: string) => (
+                  <span
+                    key={genre}
+                    className="px-2.5 py-1 bg-slate-800 border border-slate-700/60 rounded-lg text-xs font-semibold text-slate-300"
+                  >
+                    {genre}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-slate-500">No genres listed</span>
+              )}
+            </div>
+
+            {/* Right Side: Release Year */}
+            {game.releaseYear && (
+              <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-purple-400 bg-purple-950/40 border border-purple-800/40 px-3 py-1 rounded-lg shrink-0">
+                <svg className="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                {game.releaseYear}
+              </div>
+            )}
+
           </div>
+
+
 
           {/* COMMUNITY STATS BAR */}
           <div className="flex flex-wrap gap-6 py-3 px-4 bg-slate-950 border border-slate-800 rounded-xl text-xs">

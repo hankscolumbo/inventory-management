@@ -189,6 +189,7 @@ export default function GameSearch() {
                 <Link
                   key={game.id}
                   href={`/game/${game.id}`}
+                  onClick={() => setIsDropdownOpen(false)}
                   className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden hover:border-slate-700 hover:scale-[1.02] transition flex flex-col group shadow-lg"
                 >
                   <div className="aspect-[3/4] w-full bg-slate-800 relative">

@@ -20,7 +20,7 @@ export default function LogModal({ game, onClose, onSuccess }: LogModalProps) {
 
   const [rating, setRating] = useState<number>(0);
   const [review, setReview] = useState('');
-  const [status, setStatus] = useState<'PLAYED' | 'PLAYING' | 'BACKLOG'>('PLAYED');
+  const [status, setStatus] = useState<'PLAYED' | 'PLAYING' | 'WANT TO PLAY' | 'BACKLOG'>('PLAYED');
   const [loading, setLoading] = useState(false);
   //const [success, setSuccess] = useState(false);
 /*
@@ -76,7 +76,7 @@ export default function LogModal({ game, onClose, onSuccess }: LogModalProps) {
               Status
             </label>
             <div className="grid grid-cols-3 gap-2">
-              {(['PLAYED', 'PLAYING', 'BACKLOG'] as const).map((s) => (
+              {(['PLAYED', 'PLAYING', 'WANT TO PLAY', 'BACKLOG'] as const).map((s) => (
                 <button
                   key={s}
                   type="button"

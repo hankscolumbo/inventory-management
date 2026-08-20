@@ -5,6 +5,7 @@ import ProfileGameGrid from './ProfileGameGrid';
 import { auth } from '@/app/api/auth/[...nextauth]/route';
 import SyncSteamButton from '@/components/SyncSteamButton';
 import SignOutButton from '@/components/SignOutButton';
+import SteamSyncSection from './SteamSyncSection';
 
 interface PageProps {
     params: Promise<{ username: string }>;
@@ -25,6 +26,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
     const playedCount = logs.filter((l) => l.status === 'PLAYED').length;
     const playingCount = logs.filter((l) => l.status === 'PLAYING').length;
     const backlogCount = logs.filter((l) => l.status === 'BACKLOG').length;
+    const wantToPlayCount = logs.filter((l) => l.status === 'WANT TO PLAY').length;
 
     return (
         <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
@@ -61,7 +63,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
                     {/* ONLY RENDER SYNC BUTTON IF VIEWER OWN PROFILE */}
                     {isOwner && (
                         <div className="flex items-center gap-3 justify-center sm:justify-end">
-                            <SyncSteamButton />
+                            <SteamSyncSection steamId={profile.steamId} isOwner={isOwner} />
                             <SignOutButton />
                         </div>
                     )}
@@ -79,6 +81,10 @@ export default async function PublicProfilePage({ params }: PageProps) {
                         <div className="border-l border-slate-800 pl-6">
                             <span className="font-extrabold text-cyan-400 text-lg block">{playingCount}</span>
                             <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Playing</span>
+                        </div>
+                        <div className="border-l border-slate-800 pl-6">
+                            <span className="font-extrabold text-cyan-400 text-lg block">{playingCount}</span>
+                            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Want To Play</span>
                         </div>
                         <div className="border-l border-slate-800 pl-6">
                             <span className="font-extrabold text-amber-400 text-lg block">{backlogCount}</span>
