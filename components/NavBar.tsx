@@ -2,60 +2,62 @@
 import { auth } from '@/lib/auth';
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
+import CreateListModal from './CreateListModal';
 
 export default async function Navbar() {
-  const session = await auth();
+    const session = await auth();
 
-  let username = null;
+    let username = null;
 
-  if (session?.user?.email) {
-    const dbUser = await prisma.user.findUnique({
-        where: { email: session.user.email },
-        select: { username: true },
-    });
-    username = dbUser?.username;
-  }
+    if (session?.user?.email) {
+        const dbUser = await prisma.user.findUnique({
+            where: { email: session.user.email },
+            select: { username: true },
+        });
+        username = dbUser?.username;
+    }
 
-  // Fallback profile link if username isn't set yet
-  const profileHref = username ? `/u/${username}` : '/profile';
+    // Fallback profile link if username isn't set yet
+    const profileHref = username ? `/u/${username}` : '/profile';
 
-  return (
-    <nav className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-950/80 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-        <Link
-          href="/"
-          className="font-extrabold text-white text-lg tracking-tight hover:text-purple-400 transition"
-        >
-          Inventory Management
-        </Link>
-
-        <div className="flex items-center gap-4 text-xs font-semibold">
-          {session ? (
-            /* Logged In State: Direct to /u/[username] */
-              <Link
-                href={profileHref}
-                className="flex items-center gap-2 text-slate-200 hover:text-purple transition"
-              >
-                {session.user?.image && (
-                    <img
-                        src={session.user.image}
-                        alt="Avatar"
-                        className="w-6 h-6 rounded-full border-purple-500/50"
-                    />
-                )}
-            <span>{username ? `${username}` : (session.user?.name || 'Profile')}</span>
-            </Link>
-          ) : (
-            /* Logged Out State: Show Sign In Link */
-            <Link
-                href="/api/auth/signin"
-                className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition"
+    return (
+        <nav className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-950/80 backdrop-blur-md">
+            <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+                <Link
+                    href="/"
+                    className="font-extrabold text-white text-lg tracking-tight hover:text-purple-400 transition"
                 >
-                    Sign In With Twitch
+                    Inventory Management
                 </Link>
-          )}
-        </div>
-        </div>
-    </nav>
-  );
+
+                <div className="flex items-center gap-4 text-xs font-semibold">
+                    <CreateListModal />
+                    {session ? (
+                        /* Logged In State: Direct to /u/[username] */
+                        <Link
+                            href={profileHref}
+                            className="flex items-center gap-2 text-slate-200 hover:text-purple transition"
+                        >
+                            {session.user?.image && (
+                                <img
+                                    src={session.user.image}
+                                    alt="Avatar"
+                                    className="w-6 h-6 rounded-full border-purple-500/50"
+                                />
+                            )}
+                            <span>{username ? `${username}` : (session.user?.name || 'Profile')}</span>
+                        </Link>
+                    ) : (
+                        /* Logged Out State: Show Sign In Link */
+                        <Link
+                            href="/api/auth/signin"
+                            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition"
+                        >
+                            Sign In With Twitch
+                        </Link>
+                    )}
+                </div>
+            </div>
+        </nav>
+    );
 }
