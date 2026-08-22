@@ -1,20 +1,10 @@
 // app/profile/page.tsx
-//import { getServerSession } from 'next-auth/next';
 import { redirect } from 'next/navigation';
 import { getProfileData } from '@/app/actions/getProfileData';
 import ProfileTabs from '@/components/ProfileTabs';
-//import { auth } from '@/app/api/auth/[...nextauth]/route';
 
 export default async function ProfilePage() {
-  /* 1. Verify user session
-  const session = await auth();
-
-  if (!session || !session.user) {
-    redirect('/api/auth/signin');
-  }
-    */
-
-  //Alternate method - if user isnt logged in or profile  failed to load, redirect to sign in
+  //if user isnt logged in or profile  failed to load, redirect to sign in
   const profileData = await getProfileData();
 
   if (!profileData?.user) {
@@ -29,9 +19,6 @@ export default async function ProfilePage() {
     playedCount: 0,
     avgRating: null,
   };
-
-  // 2. Fetch user profile stats & logs from Neon DB via Prisma
-  //const profileData = await getProfileData();
 
   return (
     <main className="max-w-6xl mx-auto px-6 py-10 space-y-10">
@@ -88,7 +75,7 @@ export default async function ProfilePage() {
       {/* Interactive Logs List with Filter & Sort Controls */}
       <section className="space-y-4">
         <h2 className="text-xl font-bold text-white">Game Collection</h2>
-        <ProfileTabs logs={logs} />
+        <ProfileTabs logs={logs} isOwner={true} />
       </section>
     </main>
   );

@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { syncSteamGames } from '@/app/actions/syncSteam';
 import { syncSteamWishlist } from '@/app/actions/syncSteamWishlist';
 import { syncSteamOwned } from '@/app/actions/syncSteamOwned';
+import { updateSteamId } from '@/app/actions/updateSteamId';
 
 interface SteamSyncSectionProps {
   steamId?: string | null;
@@ -12,10 +13,15 @@ interface SteamSyncSectionProps {
 }
 
 export default function SteamSyncSection({ steamId, isOwner }: SteamSyncSectionProps) {
+  const [currentSteamId, setCurrentSteamId] = useState<string>(steamId || '');
+  const [inputSteamId, setInputSteamId] = useState<string>(steamId || '');
+  const [isEditing, setIsEditing] = useState<boolean>(!steamId);
+  const [savingId, setSavingId] = useState<boolean>(false);
+
   const [loadingAction, setLoadingAction] = useState<'played' | 'wishlist' | 'owned' | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  if (!isOwner) return null; // Only show control panel to profile owner
+  if (!isOwner) return null;
 
   const handleSyncPlayed = async () => {
     setLoadingAction('played');
@@ -56,19 +62,31 @@ export default function SteamSyncSection({ steamId, isOwner }: SteamSyncSectionP
     }
   };
 
-  const isBusy = loadingAction !== null;
+  const isBusy = loadingAction !== null || savingId;
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+      {/* Header Bar */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-800 pb-4">
         <div>
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
             Steam Synchronization
           </h2>
-          <p className="text-xs text-slate-400 mt-0.5">
-            {steamId ? `Linked Steam ID: ${steamId}` : 'No Steam account linked.'}
-          </p>
+          {!isEditing && (
+            <div className="flex items-center gap-2 mt-0.5">
+              <p className="text-xs text-slate-400">
+                {currentSteamId ? `Linked Steam ID: ${currentSteamId}` : 'No Steam account linked.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="text-[11px] font-semibold text-purple-400 hover:text-purple-300 underline"
+              >
+                {currentSteamId ? 'Edit ID' : 'Link Account'}
+              </button>
+            </div>
+          )}
         </div>
 
         {feedback && (
@@ -84,6 +102,74 @@ export default function SteamSyncSection({ steamId, isOwner }: SteamSyncSectionP
         )}
       </div>
 
+      {/* Steam ID Form */}
+      {isEditing && (
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setSavingId(true);
+            setFeedback(null);
+
+            const res = await updateSteamId(inputSteamId);
+            setSavingId(false);
+
+            if (res.success && res.steamId) {
+              setCurrentSteamId(res.steamId);
+              setIsEditing(false);
+              setFeedback({ type: 'success', message: 'Steam ID saved successfully!' });
+            } else {
+              setFeedback({ type: 'error', message: res.error || 'Failed to save Steam ID.' });
+            }
+          }}
+          className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-2"
+        >
+          <label className="text-xs font-semibold text-slate-300 block">
+            SteamID64 (17-digit ID)
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={inputSteamId}
+              onChange={(e) => setInputSteamId(e.target.value)}
+              placeholder="e.g. 76561198000000000"
+              className="bg-slate-900 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:border-purple-500 flex-1 font-mono"
+            />
+            <button
+              type="submit"
+              disabled={savingId || !inputSteamId.trim()}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 text-white font-bold text-xs rounded-lg transition"
+            >
+              {savingId ? 'Saving...' : 'Save Steam ID'}
+            </button>
+            {currentSteamId && (
+              <button
+                type="button"
+                onClick={() => {
+                  setInputSteamId(currentSteamId);
+                  setIsEditing(false);
+                }}
+                className="px-3 py-2 text-xs text-slate-400 hover:text-white font-semibold"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+          <p className="text-[10px] text-slate-400">
+            Find your 17-digit Steam ID at{' '}
+            <a
+              href="https://steamid.io"
+              target="_blank"
+              rel="noreferrer"
+              className="text-purple-400 underline hover:text-purple-300"
+            >
+              steamid.io
+            </a>
+            . Make sure your Steam Profile & Game Details privacy are set to <strong>Public</strong>.
+          </p>
+        </form>
+      )}
+
+      {/* Sync Options Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Sync Played Games */}
         <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between space-y-3">
@@ -96,7 +182,7 @@ export default function SteamSyncSection({ steamId, isOwner }: SteamSyncSectionP
           </div>
           <button
             onClick={handleSyncPlayed}
-            disabled={isBusy || !steamId}
+            disabled={isBusy || !currentSteamId}
             className="w-full py-2 px-3 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 text-white text-xs font-bold rounded-lg transition shadow disabled:cursor-not-allowed"
           >
             {loadingAction === 'played' ? 'Syncing...' : 'Sync Played Games'}
@@ -114,7 +200,7 @@ export default function SteamSyncSection({ steamId, isOwner }: SteamSyncSectionP
           </div>
           <button
             onClick={handleSyncWishlist}
-            disabled={isBusy || !steamId}
+            disabled={isBusy || !currentSteamId}
             className="w-full py-2 px-3 bg-pink-600 hover:bg-pink-500 disabled:bg-slate-800 text-white text-xs font-bold rounded-lg transition shadow disabled:cursor-not-allowed"
           >
             {loadingAction === 'wishlist' ? 'Syncing...' : 'Sync Wishlist'}
@@ -132,7 +218,7 @@ export default function SteamSyncSection({ steamId, isOwner }: SteamSyncSectionP
           </div>
           <button
             onClick={handleSyncOwned}
-            disabled={isBusy || !steamId}
+            disabled={isBusy || !currentSteamId}
             className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white text-xs font-bold rounded-lg transition shadow disabled:cursor-not-allowed"
           >
             {loadingAction === 'owned' ? 'Syncing...' : 'Sync Owned Status'}

@@ -113,14 +113,20 @@ async function getIgdbIdsForSteamApps(
 export async function syncSteamGames() {
     try {
         const session = await auth();
+        const userId = session?.user?.id;
         const userEmail = session?.user?.email;
 
-        if (!userEmail) {
+        if (!session || (!userId && !userEmail)) {
             return { success: false, error: 'Unauthenticated. Please sign in.' };
         }
 
-        const user = await prisma.user.findUnique({
-            where: { email: userEmail },
+        const user = await prisma.user.findFirst({
+            where: { 
+                OR: [
+                    ...(userId ? [{ id : userId }] : []),
+                    ...(userEmail ? [{ email: userEmail }] : []),
+                ],
+            },
         });
 
         if (!user || !user.steamId) {
@@ -137,7 +143,7 @@ export async function syncSteamGames() {
         }
 
         const SteamRes = await fetch(
-            `https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=${STEAM_API_KEY}&steamid=${user.steamId}&include_appinfo=true&format=json`
+            `https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=${STEAM_API_KEY}&steamid=${user.steamId}&include_appinfo=true&include_played_free_games=true&format=json`
         );
 
         if (!SteamRes.ok) {
@@ -156,7 +162,7 @@ export async function syncSteamGames() {
         if (playedGames.length === 0) {
             return { success: true, count: 0, message: 'No games found on Steam.' };
         }
-        
+
         const twitchToken = await getTwitchToken(TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET);
 
         // Execute in batch chunks of 30 to prevent database connection timeout
@@ -169,13 +175,13 @@ export async function syncSteamGames() {
 
             // Perform one batch request per chunk to resolve IGDB IDs
             let igdbDetailsMap: Record<number, { igdbId: number; name: string; coverUrl: string | null }> = {};
-            
+
             if (twitchToken) {
                 igdbDetailsMap = await getIgdbIdsForSteamApps(chunkAppIds, TWITCH_CLIENT_ID, twitchToken);
             }
 
             // Map ONLY the active chunk into database upserts
-            const upsertOperations = chunk.map((game: any) => {
+            const upsertOperations = chunk.map(async (game: any) => {
                 const appId = Number(game.appid);
                 const igdbInfo = igdbDetailsMap[appId];
 
@@ -189,49 +195,63 @@ export async function syncSteamGames() {
                 const rawMinutes = typeof game.playtime_forever === 'number' ? game.playtime_forever : 0;
                 const playtimeHours = Number((rawMinutes / 60).toFixed(1));
 
-                
+
                 const resolvedIgdbId = igdbInfo?.igdbId ? Number(igdbInfo.igdbId) : null;
 
-                return prisma.gameLog.upsert({
+                const conditions: ({ steamAppId: number } | { igdbId: number })[] = [
+                    { steamAppId: appId },
+                ];
+                if (resolvedIgdbId) {
+                    conditions.push({ igdbId: resolvedIgdbId });
+                }
+
+                const existingLog = await prisma.gameLog.findFirst({
                     where: {
-                        userId_externalGameId: {
-                            userId: user.id,
-                            externalGameId: appId,
-                        },
-                    },
-                    update: {
-                        gameTitle,
-                        coverUrl,
-                        steamAppId: appId,
-                        playtimeHours,
-                        status: 'PLAYED',
-                        isOwned: true,
-                        igdbId: resolvedIgdbId,
-                    },
-                    create: {
                         userId: user.id,
-                        externalGameId: appId,
-                        gameTitle,
-                        coverUrl,
-                        status: 'PLAYED',
-                        steamAppId: appId,
-                        playtimeHours,
-                        igdbId: resolvedIgdbId,
+                        OR: conditions,
                     },
                 });
+
+                if (existingLog) {
+                    return prisma.gameLog.update({
+                        where: { id: existingLog.id },
+                        data: {
+                            gameTitle,
+                            coverUrl,
+                            playtimeHours,
+                            steamAppId: appId,
+                            isOwned: true,
+                            ...(resolvedIgdbId ? { igdbId: resolvedIgdbId } : {}),
+                        },
+                    });
+                } else {
+                    return prisma.gameLog.create({
+                        data: {
+                            userId: user.id,
+                            steamAppId: appId,
+                            gameTitle,
+                            coverUrl,
+                            status,
+                            isOwned: true,
+                            igdbId: resolvedIgdbId,
+                            playtimeHours,
+                        },
+                    });
+                }
             });
 
-            // Execute current batch concurrently without connection pool overload
+            // Execute current batch concurrently
             await Promise.all(upsertOperations);
             savedCount += chunk.length;
+            }
+            console.log(`Successfully stored ${savedCount} Steam games in the DB`);
+            
+            if (user.username) {
+                revalidatePath('/u/' + user.username);
+            }
+            return { success: true, count: savedCount };
+        } catch (error) {
+            console.error('Error saving Steam sync to database:', error);
+            return { success: false, error: 'Database transaction failed during sync.' };
         }
-
-        console.log(`Successfully stored ${savedCount} Steam games in the Neon DB`);
-
-        revalidatePath('/u/' + user.username);
-        return { success: true, count: savedCount };
-    } catch (error) {
-        console.error('Error saving Steam sync to database:', error);
-        return { success: false, error: 'Database transaction failed during sync.' };
     }
-}

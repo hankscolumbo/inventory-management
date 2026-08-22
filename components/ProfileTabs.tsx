@@ -8,17 +8,24 @@ import Link from 'next/link';
 
 export interface GameLog {
   id: string;
-  externalGameId: number;
+  userId: string;
+  igdbId?: number | null;
+  steamAppId?: number | null;
   gameTitle: string;
   coverUrl?: string | null;
   rating?: number | null;
   review?: string | null;
   status: string;
   playedOn: string | Date;
+  playtimeHours?: number | null;
+  isOwned?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 interface ProfileTabsProps {
     logs: GameLog[];
+    isOwner?: boolean;
 }
 
 export default function ProfileTabs({ logs }: ProfileTabsProps) {
@@ -78,7 +85,7 @@ export default function ProfileTabs({ logs }: ProfileTabsProps) {
               className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex gap-4 items-start hover:border-slate-700 transition"
             >
               {/* Cover Poster Link */}
-              <Link href={`/game/${log.externalGameId}`} className="shrink-0">
+              <Link href={`/game/${log.igdbId}`} className="shrink-0">
                 {log.coverUrl ? (
                   <img
                     src={log.coverUrl}
@@ -95,7 +102,7 @@ export default function ProfileTabs({ logs }: ProfileTabsProps) {
               {/* Log Details */}
               <div className="flex-1 min-w-0 space-y-2">
                 <div className="flex justify-between items-start gap-2">
-                  <Link href={`/game/${log.externalGameId}`} className="hover:text-purple-400 transition truncate">
+                  <Link href={`/game/${log.igdbId}`} className="hover:text-purple-400 transition truncate">
                     <h3 className="font-bold text-slate-100 text-base truncate">{log.gameTitle}</h3>
                   </Link>
                   <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-purple-600/20 text-purple-300 border border-purple-500/30 shrink-0">

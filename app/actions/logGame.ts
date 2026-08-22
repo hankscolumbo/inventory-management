@@ -10,17 +10,18 @@ import { revalidatePath } from 'next/cache';
 //const prisma = new PrismaClient({ adapter })
 
 interface LogInput {
-  externalGameId: number | string;
+  gameId: number;
   gameTitle: string;
   coverUrl?: string | null;
   rating?: number | null;
   review: string;
-  status: 'PLAYED' | 'PLAYING' | 'WANT TO PLAY' | 'BACKLOG';
+  status: string;
   playtimeHours?: number | null;
   isOwned?: boolean;
+  isSteamApp?: boolean; // Flag if input is comes from STEAM
 }
 
-export async function logGame(data: LogInput) {
+export async function logGame(input: LogInput) {
   try {
     // Verify authenticated session
     const session = await auth();
@@ -36,6 +37,10 @@ export async function logGame(data: LogInput) {
     }
 
     // Locate user in Neon DB
+    const userConditions: ({ id: string } | { email: string })[] = [];
+    if (userId) userConditions.push({ id: userId });
+    if (userEmail) userConditions.push({ email: userEmail });
+
     const user = await prisma.user.findFirst({
       where: {
         OR: [
@@ -50,52 +55,62 @@ export async function logGame(data: LogInput) {
       return { success: false, error: 'User not found in database' };
     }
     
-    const numericGameId = Number(data.externalGameId);
+    const numericGameId = Number(input.gameId);
     if (isNaN(numericGameId)) {
       return { success: false, error: 'Invalid Game ID.'};
     }
+    
+    const igdbId = input.isSteamApp ? null : numericGameId;
+    const steamAppId = input.isSteamApp ? numericGameId : null;
 
-    const isOwned = Boolean(data.isOwned);
-
-    const log = await prisma.gameLog.upsert({
+    const existingLog = await prisma.gameLog.findFirst({
       where: {
-        userId_externalGameId: {
-          userId: user.id,
-          externalGameId: numericGameId,
+        userId: session.user.id,
+        OR: [
+          ...(igdbId ? [{ igdbId }] : []),
+          ...(steamAppId ? [{ steamAppId }] : []),
+        ],
         },
-      },
-    update: {
-      gameTitle: data.gameTitle,
-      coverUrl: data.coverUrl,
-      rating: data.rating ?? null,
-      review: data.review ?? null,
-      status: data.status,
-      playedOn: new Date(),
-      playtimeHours: data.playtimeHours ?? null,
-      igdbId: numericGameId,
-      isOwned,
-    },
-    create: {
-      userId: user.id,
-      externalGameId: numericGameId,
-      igdbId: numericGameId,
-      gameTitle: data.gameTitle,
-      coverUrl: data.coverUrl ?? null,
-      rating: data.rating ?? null,
-      review: data.review ?? null,
-      status: data.status,
-      playtimeHours: data.playtimeHours ?? null,
-      isOwned,
-    },
-  });
+      });
 
-  console.log('Log saved successfully:', log.id);
+      if (existingLog) {
+        await prisma.gameLog.update({
+          where: { id: existingLog.id },
+          data: {
+            gameTitle: input.gameTitle,
+            coverUrl: input.coverUrl,
+            rating: input.rating ?? null,
+            review: input.review ?? null,
+            status: input.status,
+            playedOn: new Date(),
+            playtimeHours: input.playtimeHours ?? null,
+            ...(igdbId && { igdbId }),
+            ...(steamAppId && { steamAppId }),
+            isOwned: input.isOwned ?? existingLog.isOwned,
+          },
+        });
+      } else {
+        await prisma.gameLog.create({
+          data: {
+            userId: user.id,
+            igdbId,
+            steamAppId,
+            gameTitle: input.gameTitle,
+            coverUrl: input.coverUrl,
+            rating: input.rating ?? null,
+            review: input.review ?? null,
+            status: input.status,
+            playtimeHours: input.playtimeHours ?? null,
+            isOwned: input.isOwned ?? false,
+        },
+      });
+    }
 
   // Purge Next.js server cache
   if (user.username) {
     revalidatePath('/u/' + user.username);
   }
-  return { success: true, log };
+  return { success: true };
   } catch (error) {
   console.error('Error saving log to database:', error);
   return { success: false, error: 'Failed to save log' };

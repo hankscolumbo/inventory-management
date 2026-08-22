@@ -3,10 +3,33 @@
 
 import { prisma } from '@/lib/prisma';
 
-export async function getGameCommunityData(gameId: number) {
-  try {
+interface GameCommunityDataInput {
+  igdbId?: number | null;
+  steamAppId?: number | null;
+}
+
+export async function getGameCommunityData(input: GameCommunityDataInput | number) {
+  const igdbId = typeof input === 'number' ? input : input.igdbId;
+  const steamAppId = typeof input === 'number' ? input : input.steamAppId;
+  
+  const conditions: ({ igdbId: number } | { steamAppId: number })[] = [];
+  if (igdbId) conditions.push({ igdbId });
+  if (steamAppId) conditions.push({ steamAppId });
+
+  if (conditions.length === 0) {
+    return {
+      avgRating: null,
+      totalLogs: 0,
+      playedCount: 0,
+      playingCount: 0,
+      backlogCount: 0,
+    };
+  }
+
     const logs = await prisma.gameLog.findMany({
-      where: { externalGameId: gameId },
+      where: {
+        OR: conditions,
+      },
         select: {
             status: true,
             rating: true,
@@ -31,14 +54,4 @@ export async function getGameCommunityData(gameId: number) {
       backlogCount,
       avgRating,
     };
-  } catch (error) {
-    console.error('Error fetching game stats:', error);
-    return {
-      totalLogs: 0,
-      playedCount: 0,
-      playingCount: 0,
-      backlogCount: 0,
-      avgRating: null,
-    };
   }
-}

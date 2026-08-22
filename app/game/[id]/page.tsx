@@ -8,6 +8,9 @@ interface GamePageProps {
   params: Promise<{
     id: string;
   }>;
+  searchParams?: Promise<{
+    source?: 'steam' | 'igdb';
+  }>;
 }
 
 function cleanDescription(text: string): string {
@@ -62,7 +65,7 @@ async function getTwitchToken(): Promise<string | null> {
   }
 }
 
-async function getGameDetails(gameId: string) {
+async function getGameDetails(gameId: string, isSteamAppExplicit: boolean) {
   try {
     const numericId = Number(gameId);
     if (isNaN(numericId)) return null;
@@ -81,28 +84,43 @@ async function getGameDetails(gameId: string) {
     let game: any = null;
 
     // STEP 1: DIRECT IGDB GAME ID TO LOOKUP
-    try {
-      const igdbRes = await fetch('https://api.igdb.com/v4/games', {
-        method: 'POST',
-        headers,
-        cache: 'no-store',
-        body: `fields name, summary, cover.url, first_release_date, genres.name, platforms.name; where id = ${numericId};`,
-      });
+    if (!isSteamAppExplicit && clientId && token) {
+      try {
+        const igdbRes = await fetch('https://api.igdb.com/v4/games', {
+          method: 'POST',
+          headers,
+          cache: 'no-store',
+          body: `fields name, summary, cover.url, first_release_date, genres.name, platforms.name; where id = ${numericId};`,
+        });
 
-      if (igdbRes.ok) {
-        const games = await igdbRes.json();
-        if (Array.isArray(games) && games.length > 0) {
-          game = games[0];
+        if (igdbRes.ok) {
+          const games = await igdbRes.json();
+          if (Array.isArray(games) && games.length > 0) {
+            game = games[0];
+            return{
+              igdbId: Number(game.id),
+              steamAppId: null as number | null,
+              name: game.name || 'Untitled Game',
+              summary: cleanDescription(game.summary),
+              coverUrl: game.cover?.url
+                ? `https:${game.cover.url.replace('t_thumb', 't_1080p')}`
+                : null,
+              releaseYear: game.first_release_date
+                ? new Date(game.first_release_date * 1000).getFullYear()
+                : null,
+              genres: Array.isArray(game.genres)
+                ? game.genres.map((g: { name: string }) => g.name)
+                : [],
+            };
+          }
         }
-      } else {
-        console.error('[IGDB Games Direct Lookup Rejected:', await igdbRes.text());
+      } catch (e) {
+        console.error('[IGDB Direct Lookup Exception]:', e);
       }
-    } catch (e) {
-      console.error('[IGDB Direct Lookup Exception]:', e);
     }
 
     // STEP 2: If the direct IGDB lookup didnt find anything, try IDGB Steam lookup
-    if (!game) {
+    if (clientId && token) {
       try {
         const externalRes = await fetch('https://api.igdb.com/v4/external_games', {
           method: 'POST',
@@ -115,10 +133,25 @@ async function getGameDetails(gameId: string) {
           const externalData = await externalRes.json();
           if (Array.isArray(externalData) && externalData.length > 0 && externalData[0]?.game) {
             game = externalData[0].game;
+            return{
+              igdbdId: Number(game.id),
+              steamAppId: numericId,
+              name: game.name || 'Untitled Game',
+              summary: cleanDescription(game.summary),
+              coverUrl: game.cover?.url
+                ? `https:${game.cover.url.replace('t_thumb', 't_1080p')}`
+                : `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${numericId}/library_600x900.jpg`,
+              releaseYear: game.first_release_date
+                ? new Date(game.first_release_date * 1000).getFullYear()
+                : null,
+              genres: Array.isArray(game.genres)
+                ? game.genres.map((g: { name: string }) => g.name)
+                : [],
+            };
           }
         }
       } catch (e) {
-        console.error('[IGDB Games Direct Lookup Error:', e);
+        console.error('[IGDB External Games Lookup Error:', e);
       }
     }
 
@@ -136,10 +169,13 @@ async function getGameDetails(gameId: string) {
             const rawSummary = steamDetails.short_description || steamDetails.about_the_game || '';
 
             return {
-              id: numericId,
+              igdbId: null as number | null,
+              steamAppId: numericId,
               name: steamDetails.name,
               summary: cleanDescription(rawSummary),
-              coverUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${gameId}/library_600x900.jpg`,
+              coverUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${gameId}/library_600x900.jpg`
+                ? `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${numericId}/library_600x900.jpg`
+                : null,
               genres: Array.isArray(steamDetails.genres)
                 ? steamDetails.genres?.map((g: any) => g.description)
                 : [],
@@ -154,7 +190,7 @@ async function getGameDetails(gameId: string) {
         console.error('Steam Store API Fallback Failed:', e);
       }
     }
-
+/*
     // Return only if all 3 lookup strategies fail
     if (!game) return null;
 
@@ -183,21 +219,37 @@ async function getGameDetails(gameId: string) {
       genres,
       platforms,
     };
+    */
+   return null;
   } catch (err) {
-    console.error('Error getching game details:', err);
+    console.error('Error fetching game details:', err);
     return null;
   }
 }
 
 // 2. PAGE COMPONENT
-export default async function GameDetailsPage({ params }: GamePageProps) {
+export default async function GameDetailsPage({ params, searchParams }: GamePageProps) {
   const { id } = await params;
-  const game = await getGameDetails(id);
-  const stats = await getGameCommunityData(Number(id));
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const isSteamApp = resolvedSearchParams.source === 'steam';
+
+  const game = await getGameDetails(id, isSteamApp);
 
   if (!game) {
     notFound();
   }
+
+  // Fetch community stats using both igdbId and steamAppId to match all user logs
+  const stats = await getGameCommunityData({
+    igdbId: game.igdbId ?? null,
+    steamAppId: game.steamAppId ?? null,
+  }).catch(() => ({
+    avgRating: null,
+    totalLogs: 0,
+    playedCount: 0,
+    playingCount: 0,
+    backlogCount: 0,
+  }));
 
   return (
     <main className="max-w-6xl mx-auto px-6 py-10 space-y-10">
@@ -314,9 +366,10 @@ export default async function GameDetailsPage({ params }: GamePageProps) {
       <div className="flex justify-end">
         <LogGameButton
           game={{
-            id: game.id,
+            id: game.igdbId || game.steamAppId!,
             name: game.name,
             coverUrl: game.coverUrl,
+            isSteamApp: !game.igdbId && Boolean(game.steamAppId),
           }}
         />
       </div>

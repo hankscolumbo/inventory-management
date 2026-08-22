@@ -10,19 +10,27 @@ interface LogModalProps {
         name: string;
         coverUrl?: string | null;
         first_release_date?: number;
+        isSteamApp?: boolean;
+    };
+    initialLog?: {
+        status?: 'PLAYED' | 'PLAYING' | 'WANT TO PLAY' | 'BACKLOG';
+        rating?: number | null;
+        playtimeHours?: number | null;
+        isOwned?: boolean | null;
     };
     onClose: () => void;
-    onSuccess?: () => void;
 }
 
-export default function LogModal({ game, onClose, onSuccess }: LogModalProps) {
+export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
     if (!game) return null;
-
-    const [rating, setRating] = useState<number>(0);
-    const [review, setReview] = useState('');
-    const [status, setStatus] = useState<'PLAYED' | 'PLAYING' | 'WANT TO PLAY' | 'BACKLOG'>('PLAYED');
     const [loading, setLoading] = useState(false);
-    const [isOwned, setIsOwned] = useState(true);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+    const [rating, setRating] = useState<number | ''>(initialLog?.rating ?? '');
+    const [review, setReview] = useState('');
+    const [status, setStatus] = useState<'PLAYED' | 'PLAYING' | 'WANT TO PLAY' | 'BACKLOG'>(initialLog?.status || 'PLAYED');
+    const [isOwned, setIsOwned] = useState<boolean>(initialLog?.isOwned ?? status !== 'WANT TO PLAY');
+    const [playtimeHours, setPlaytimeHours] = useState<number | ''>(initialLog?.playtimeHours ?? '');
 
     const handleStatusChange = (selectedStatus: 'PLAYED' | 'PLAYING' | 'WANT TO PLAY' | 'BACKLOG') => {
         setStatus(selectedStatus);
@@ -36,6 +44,7 @@ export default function LogModal({ game, onClose, onSuccess }: LogModalProps) {
         }
     };
 
+    /*
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
@@ -64,6 +73,7 @@ export default function LogModal({ game, onClose, onSuccess }: LogModalProps) {
             setLoading(false);
         }
     };
+*/
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -78,7 +88,36 @@ export default function LogModal({ game, onClose, onSuccess }: LogModalProps) {
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form
+                    onSubmit={async (e) => {
+                        e.preventDefault()
+                        setLoading(true);
+                        setErrorMsg(null);
+
+                        const numericGameId = Number(game.id);
+
+                        const res = await logGame({
+                            gameId: numericGameId,
+                            gameTitle: game.name,
+                            coverUrl: game.coverUrl,
+                            status,
+                            rating: rating !== '' ? Number(rating) : null,
+                            review,
+                            isOwned,
+                            isSteamApp: game.isSteamApp ?? false,
+                            playtimeHours: playtimeHours !== '' ? Number(playtimeHours) : null,
+                        });
+
+                        setLoading(false);
+
+                        if (res.success) {
+                            onClose();
+                        } else {
+                            setErrorMsg(res.error || 'Failed to save log');
+                        }
+                    }}
+                    className="space-y-4"
+                >
                     {/* Status Selector */}
                     <div className="space-y-1.5">
                         <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
@@ -106,7 +145,10 @@ export default function LogModal({ game, onClose, onSuccess }: LogModalProps) {
                         <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                             Rating
                         </label>
-                        <StarRating value={rating} onChange={(val) => setRating(val)} />
+                        <StarRating
+                            value={rating !== '' ? Number(rating) : undefined}
+                            onChange={(val) => setRating(val)}
+                        />
                     </div>
 
                     {/* Review Textarea */}

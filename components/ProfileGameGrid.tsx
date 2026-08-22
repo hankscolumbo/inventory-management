@@ -6,20 +6,32 @@ import Link from 'next/link';
 
 interface GameLog {
     id: string;
-    externalGameId: number;
+    userId: string;
+    igdbId?: number | null;
     steamAppId?: number | null;
     gameTitle: string;
     coverUrl?: string | null;
     status: string;
     rating?: number | null;
     playtimeHours?: number | null;
-    igdbId?: number | null;
     isOwned?: boolean;
+    createdAt?: Date;
+    updatedAt?: Date;
+}
+
+export function getGameLogHref(log: GameLog): string {
+    if (log.igdbId) {
+        return `/game/${log.igdbId}`;
+    }
+    if (log.steamAppId) {
+        return `/game/${log.steamAppId}?source=steam`;
+    }
+    return '#';
 }
 
 export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
     const [search, setSearch] = useState('');
-    const [activeTab, setActiveTab] = useState<'ALL' | 'PLAYED' | 'PLAYING' | 'WANT TO PLAY' | 'BACKLOG'>('ALL');
+    const [activeTab, setActiveTab] = useState<string>('ALL');
     const [sortBy, setSortBy] = useState<'NEWEST' | 'TITLE' | 'RATING' | 'PLAYTIME'>('NEWEST');
     const [showOwnedOnly, setShowOwnedOnly] = useState(false);
     const [page, setPage] = useState(1);
@@ -119,12 +131,14 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
                     {paginatedLogs.map((log) => {
                         // 1. Prefer IGDB Game Id
                         // 2. Gall back to steamAppId / externalGameId only if igdbId is null
-                        const targetId = log.igdbId || log.steamAppId || log.externalGameId;
+                        //const targetId = log.igdbId || log.steamAppId || log.externalGameId;
+                        const href = getGameLogHref(log);
 
                         return (
                             <Link
                                 key={log.id}
-                                href={`/game/${targetId}`}
+                                //href={`/game/${targetId}`}
+                                href={href}
                                 className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden hover:border-purple-500/50 hover:scale-[1.02] transition duration-200 flex flex-col group shadow-lg"
                             >
 
@@ -134,13 +148,6 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
                                             src={log.coverUrl}
                                             alt={log.gameTitle}
                                             className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                                            onError={(e) => {
-                                                const target = e.target as HTMLImageElement;
-                                                // Prevent infinite re-trigger loop if fallback also fails
-                                                if (targetId && !target.src.includes('library_600x900.jpg')) {
-                                                    target.src = `https://cdn.cloudflare.steamstatic.com/steam/apps/${targetId}/library_600x900.jpg`;
-                                                }
-                                            }}
                                         />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-xs text-slate-500 font-medium p-2 text-center">

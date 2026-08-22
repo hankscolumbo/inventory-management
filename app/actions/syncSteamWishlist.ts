@@ -110,44 +110,58 @@ async function getIgdbDetailsForSteamApps(
   }
 }
 
-/*
 // Fallback to Steam Storefront API if IGDB and IWishlistService missing title
-async function batchFetchSteamStoreTitles(appId: number[]): Promise<Record<number, string>> {
+async function batchFetchSteamStoreTitles(missingAppIds: number[]): Promise<Record<number, string>> {
   const titlesMap: Record<number, string> = {};
-  if (appIds.length === 0) return titlesMap;
+  if (missingAppIds.length === 0) return titlesMap;
 
   // process in chunks of 5 to respect steam store API limits
   const chunkSize = 5;
-  for (let i = 0; i < appIds.length; i += chunkSize) {
-    const chunk = appIds.slice(i, i + chunkSize);
+  for (let i = 0; i < missingAppIds.length; i += chunkSize) {
+    const chunk = missingAppIds.slice(i, i + chunkSize);
 
     await Promise.all(
       chunk.map(async (appId) => {
         try {
-          const res = await fetch(`https://store.steampowered.com/api/appdetails?appids=${appId}`, {
+          const res = await fetch(`https://store.steampowered.com/api/appdetails?appids=${appId}&cc=us&l=en`, {
             cache: 'no-store',
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
           });
+
           if (!res.ok) {
             const data = await res.json();          
             if (data?.[appId]?.success && data[appId]?.data?.name) {
             titlesMap[appId] = data[appId].data.name;
+            return;
           }
         }
+        
+        // Fallback: Community XML
+          const xmlRes = await fetch(`https://steamcommunity.com/app/${appId}?xml=1`, {
+            cache: 'no-store',
+          });
+          if (!xmlRes.ok) {
+            const text = await xmlRes.json();          
+            const match = text.match(/<appTitle><!\[CDATA\[(.*?)\]\]><\/appTitle>/) || text.match(/<appTitle>(.*?)<\/appTitle>/);
+            if (match && match[1]) {
+            titlesMap[appId] = match[1].trim();
+            }
+          }
         } catch {
           // ignore individual fetch timeouts
         }
       })
     );
 
-    // 100ms pause between chunks to stay under rate limit thresholds
-    if (i + chunkSize < appIds.length) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
+    // 150ms pause between chunks to stay under rate limit thresholds
+    if (i + chunkSize < missingAppIds.length) {
+      await new Promise((res) => setTimeout(res, 150));
     }
   }
 
   return titlesMap;
 }
-*/
+/*
 
 // Single Title Lookup via Steam Community Hub and Store API
 async function fetchSteamStoreTitle(appId: number): Promise<string | null> {
@@ -187,6 +201,7 @@ async function fetchSteamStoreTitle(appId: number): Promise<string | null> {
         
         return null;
 }
+*/
 
 export async function syncSteamWishlist() {
   try {
@@ -253,13 +268,13 @@ export async function syncSteamWishlist() {
     if (twitchToken) {
       igdbDetailsMap = await getIgdbDetailsForSteamApps(allAppIds, TWITCH_CLIENT_ID!, twitchToken);
     }
-/*
+
     // Identify app IDs where IGDB failed to find game name
     const missingTitleAppIds = allAppIds.filter((appId: number) => !igdbDetailsMap[appId]?.name);
 
     // Fetch titles directly from steam store API for missing titles
     const steamStoreTitlesMap = await batchFetchSteamStoreTitles(missingTitleAppIds);
-*/
+
     let savedCount = 0;
 
     for (const item of items) {
@@ -267,46 +282,60 @@ export async function syncSteamWishlist() {
       if (isNaN(appId)) continue;
 
       const igdbInfo = igdbDetailsMap[appId];
-      //const steamStoreTitle = steamStoreTitlesMap[appId];
-
-      let gameTitle = igdbInfo?.name;
+      const steamStoreTitle = steamStoreTitlesMap[appId];
+      
+      const gameTitle = igdbInfo?.name || steamStoreTitle || 'CANT FIND TITLE';
+/*
       if(!gameTitle) {
         const fallbackTitle = await fetchSteamStoreTitle(appId);
         gameTitle = fallbackTitle || `Steam App ${appId}`;
       }
-
+*/
       let coverUrl =
         igdbInfo?.coverUrl ||
         `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
 
       const resolvedIgdbId = igdbInfo?.igdbId ? Number(igdbInfo.igdbId) : null;
 
-      await prisma.gameLog.upsert({
+      const conditions: ({ steamAppId: number} | { igdbId: number})[] = [
+        { steamAppId: appId },
+      ];
+      if (resolvedIgdbId) {
+        conditions.push({ igdbId: resolvedIgdbId });
+      }
+
+      const existingLog = await prisma.gameLog.findFirst({
         where: {
-          userId_externalGameId: {
-            userId: user.id,
-            externalGameId: appId,
-          },
-        },
-        update: {
-          gameTitle,
-          coverUrl,
-          steamAppId: appId,
-          status: 'WANT TO PLAY',
-          isOwned: false,
-          igdbId: resolvedIgdbId,
-        },
-        create: {
           userId: user.id,
-          externalGameId: appId,
-          gameTitle,
-          coverUrl,
-          status: 'WANT TO PLAY',
-          steamAppId: appId,
-          isOwned: false,
-          igdbId: resolvedIgdbId,
-        },
+           OR: conditions,
+          },
+        });
+
+        if (existingLog) {
+          await prisma.gameLog.update({
+            where: { id: existingLog.id },
+            data: {
+              gameTitle,
+              coverUrl,
+              steamAppId: appId,
+              status: 'WANT TO PLAY',
+              isOwned: false,
+              ...(resolvedIgdbId ? { igdbId: resolvedIgdbId } : {}),
+            },
+          });
+        } else {
+          await prisma.gameLog.create({
+            data: {
+              userId: user.id,
+              steamAppId: appId,
+              gameTitle,
+              coverUrl,
+              status: 'WANT TO PLAY',
+              isOwned: false,
+              igdbId: resolvedIgdbId,
+            },
       });
+    }
 
       savedCount++;
     }

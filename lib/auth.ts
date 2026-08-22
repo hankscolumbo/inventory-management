@@ -26,36 +26,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: profile.preferred_username || profile.login,
           username: (profile.preferred_username || profile.login || '').toLowerCase(),
           email: profile.email,
-          image: profile.profile_image_url,
+          image: profile.picture || profile.profile_image_url,
         };
       },
     }),
   ],
   callbacks: {
-    async signIn({ user, profile }) {
-      if (user && profile) {
-        const twitchUsername = (
-          (profile as any).preferred_username ||
-          (profile as any).login ||
-          ''
-        ).toLowerCase();
-
-        if (twitchUsername && user.id) {
-          // Sync twitch username into Neon DB
-          await prisma.user.update({
-            where: { id: user.id },
-            data: { username: twitchUsername },
-          });
-        }
-      }
-      return true;
+    async signIn() {
+        return true;
     },
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.email = user.email;
-        // Fallback to profile username if user.username is not on initial object
         token.username = (user as any).username || (user as any).name?.toLowerCase();
+        token.picture = user.image;
       }
       return token;
     },
@@ -64,6 +49,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (token.id) session.user.id = token.id as string;
         if (token.email) session.user.email = token.email as string;
         if (token.username) session.user.username = token.username as string;
+        if (token.picture) session.user.image = token.picture as string;
       }
       return session;
     },
