@@ -311,7 +311,6 @@ export async function syncSteamWishlist() {
             steamAppId: appId,
             status: 'WANT TO PLAY',
             isOwned: false,
-            ...(resolvedIgdbId ? { igdbId: resolvedIgdbId } : {}),
           },
         });
       } else {
