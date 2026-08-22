@@ -8,7 +8,7 @@ import { revalidatePath } from 'next/cache';
 async function getTwitchToken(clientId: string, clientSecret: string) {
   try {
     const tokenRes = await fetch(
-      `https://id.twitch.tv/oauth2/token?client_id=clientId&clientsecret={clientSecret}&grant_type=client_credentials`,
+      `https://id.twitch.tv/oauth2/token?client_id=${clientId}&client_secret=${clientSecret}&grant_type=client_credentials`,
       { method: 'POST', cache: 'no-store' }
     );
     const tokenData = await tokenRes.json();
@@ -19,7 +19,7 @@ async function getTwitchToken(clientId: string, clientSecret: string) {
   }
 }
 
-// Batch query IGDB for matching Steam App IDs
+// Chunked query to IGDB for matching Steam App IDs in batches of 40
 async function getIgdbDetailsForSteamApps(
   steamAppIds: number[],
   clientId: string,
@@ -27,95 +27,98 @@ async function getIgdbDetailsForSteamApps(
 ): Promise<Record<number, { igdbId: number; name: string; coverUrl: string | null }>> {
   if (steamAppIds.length === 0) return {};
 
-  try {
-    const formattedUids = steamAppIds.map((id) => `"${id}"`).join(',');
+  const finalMap: Record<number, { igdbId: number; name: string; coverUrl: string | null }> = {};
+  const chunkSize = 40; // Avoid payload size limits in IGDB
 
-    const extRes = await fetch('https://api.igdb.com/v4/external_games', {
-      method: 'POST',
-      headers: {
-        'Client-ID': clientId,
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'text/plain',
-      },
-      cache: 'no-store',
-      body: `fields uid, game; where uid = (${formattedUids}) & external_game_source = 1; limit 500;`,
-    });
+  for (let i = 0; i < steamAppIds.length; i += chunkSize) {
+    const chunk = steamAppIds.slice(i, i + chunkSize);
+    const formattedUids = chunk.map((id) => `"${id}"`).join(',');
 
-    if (!extRes.ok) return {};
-    const extData = await extRes.json();
-    if (!Array.isArray(extData) || extData.length === 0) return {};
-
-    const appIdToIgdbIdMap: Record<number, number> = {};
-    const igdbIdsToFetch: number[] = [];
-
-    extData.forEach((item: any) => {
-      const appId = Number(item.uid);
-      const rawGame = item.game;
-      const igdbId = typeof rawGame === 'object' ? Number(rawGame?.id) : Number(rawGame);
-
-      if (appId && !isNaN(igdbId) && igdbId > 0) {
-        appIdToIgdbIdMap[appId] = igdbId;
-        igdbIdsToFetch.push(igdbId);
-      }
-    });
-
-    if (igdbIdsToFetch.length === 0) return {};
-
-    const gamesRes = await fetch('https://api.igdb.com/v4/games', {
-      method: 'POST',
-      headers: {
-        'Client-ID': clientId,
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'text/plain',
-      },
-      cache: 'no-store',
-      body: `fields name, cover.url; where id = (${igdbIdsToFetch.join(',')}); limit 500;`,
-    });
-
-    if (!gamesRes.ok) return {};
-    const gamesData = await gamesRes.json();
-    const igdbGameDetailsMap: Record<number, { name: string; coverUrl: string | null }> = {};
-
-    if (Array.isArray(gamesData)) {
-      gamesData.forEach((game: any) => {
-        const rawCover = game.cover?.url;
-        const coverUrl = rawCover
-          ? `https:${rawCover.replace('t_thumb', 't_1080p')}`
-          : null;
-
-        igdbGameDetailsMap[Number(game.id)] = {
-          name: game.name,
-          coverUrl,
-        };
+    try {
+      const extRes = await fetch('https://api.igdb.com/v4/external_games', {
+        method: 'POST',
+        headers: {
+          'Client-ID': clientId,
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'text/plain',
+        },
+        cache: 'no-store',
+        body: `fields uid, game; where uid = (${formattedUids}) & external_game_source = 1; limit 500;`,
       });
-    }
 
-    const finalMap: Record<number, { igdbId: number; name: string; coverUrl: string | null }> = {};
-    Object.entries(appIdToIgdbIdMap).forEach(([appIdStr, igdbId]) => {
-      const appId = Number(appIdStr);
-      const details = igdbGameDetailsMap[igdbId];
-      if (details) {
-        finalMap[appId] = {
-          igdbId: Number(igdbId),
-          name: details.name,
-          coverUrl: details.coverUrl,
-        };
+      if (!extRes.ok) continue;
+      const extData = await extRes.json();
+      if (!Array.isArray(extData) || extData.length === 0) continue;
+
+      const appIdToIgdbIdMap: Record<number, number> = {};
+      const igdbIdsToFetch: number[] = [];
+
+      extData.forEach((item: any) => {
+        const appId = Number(item.uid);
+        const rawGame = item.game;
+        const igdbId = typeof rawGame === 'object' ? Number(rawGame?.id) : Number(rawGame);
+
+        if (appId && !isNaN(igdbId) && igdbId > 0) {
+          appIdToIgdbIdMap[appId] = igdbId;
+          igdbIdsToFetch.push(igdbId);
+        }
+      });
+
+      if (igdbIdsToFetch.length === 0) continue;
+
+      const gamesRes = await fetch('https://api.igdb.com/v4/games', {
+        method: 'POST',
+        headers: {
+          'Client-ID': clientId,
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'text/plain',
+        },
+        cache: 'no-store',
+        body: `fields name, cover.url; where id = (${igdbIdsToFetch.join(',')}); limit 500;`,
+      });
+
+      if (!gamesRes.ok) continue;
+      const gamesData = await gamesRes.json();
+
+      if (Array.isArray(gamesData)) {
+        const igdbGameDetailsMap: Record<number, { name: string; coverUrl: string | null }> = {};
+        gamesData.forEach((game: any) => {
+          const rawCover = game.cover?.url;
+          const coverUrl = rawCover
+            ? `https:${rawCover.replace('t_thumb', 't_1080p')}`
+            : null;
+
+          igdbGameDetailsMap[Number(game.id)] = {
+            name: game.name,
+            coverUrl,
+          };
+        });
+
+        Object.entries(appIdToIgdbIdMap).forEach(([appIdStr, igdbId]) => {
+          const appId = Number(appIdStr);
+          const details = igdbGameDetailsMap[igdbId];
+          if (details) {
+            finalMap[appId] = {
+              igdbId: Number(igdbId),
+              name: details.name,
+              coverUrl: details.coverUrl,
+            };
+          }
+        });
       }
-    });
-
-    return finalMap;
-  } catch (error) {
-    console.error('[Wishlist Sync] IGDB resolution error:', error);
-    return {};
+    } catch (error) {
+      console.error('[Wishlist Sync] IGDB chunk error:', error);
+    }
   }
+
+  return finalMap;
 }
 
-// Fallback to Steam Storefront API if IGDB and IWishlistService missing title
+// Batch Steam Store API lookup
 async function batchFetchSteamStoreTitles(missingAppIds: number[]): Promise<Record<number, string>> {
   const titlesMap: Record<number, string> = {};
   if (missingAppIds.length === 0) return titlesMap;
 
-  // process in chunks of 5 to respect steam store API limits
   const chunkSize = 5;
   for (let i = 0; i < missingAppIds.length; i += chunkSize) {
     const chunk = missingAppIds.slice(i, i + chunkSize);
@@ -128,32 +131,33 @@ async function batchFetchSteamStoreTitles(missingAppIds: number[]): Promise<Reco
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
           });
 
-          if (!res.ok) {
-            const data = await res.json();          
+          if (res.ok) {
+            const data = await res.json();
             if (data?.[appId]?.success && data[appId]?.data?.name) {
-            titlesMap[appId] = data[appId].data.name;
-            return;
+              titlesMap[appId] = data[appId].data.name;
+              return;
+            }
           }
-        }
-        
-        // Fallback: Community XML
+
+          // XML Fallback
           const xmlRes = await fetch(`https://steamcommunity.com/app/${appId}?xml=1`, {
             cache: 'no-store',
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
           });
-          if (!xmlRes.ok) {
-            const text = await xmlRes.json();          
+
+          if (xmlRes.ok) {
+            const text = await xmlRes.text();
             const match = text.match(/<appTitle><!\[CDATA\[(.*?)\]\]><\/appTitle>/) || text.match(/<appTitle>(.*?)<\/appTitle>/);
             if (match && match[1]) {
-            titlesMap[appId] = match[1].trim();
+              titlesMap[appId] = match[1].trim();
             }
           }
         } catch {
-          // ignore individual fetch timeouts
+          // ignore timeouts
         }
       })
     );
 
-    // 150ms pause between chunks to stay under rate limit thresholds
     if (i + chunkSize < missingAppIds.length) {
       await new Promise((res) => setTimeout(res, 150));
     }
@@ -161,47 +165,38 @@ async function batchFetchSteamStoreTitles(missingAppIds: number[]): Promise<Reco
 
   return titlesMap;
 }
-/*
 
-// Single Title Lookup via Steam Community Hub and Store API
-async function fetchSteamStoreTitle(appId: number): Promise<string | null> {
-        // fetch via store api with no country code
-        try {
-          const res = await fetch(`https://store.steampowered.com/api/appdetails?appids=${appId}`, {
-            cache: 'no-store',
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-            },
-          });
-          if (!res.ok) {
-            const data = await res.json();          
-            if (data?.[appId]?.success && data[appId]?.data?.name) {
-            return data[appId].data.name;
-          }
-        }
-        } catch {
-          // ignore store timeouts
-        }
+// Single-item fallback lookup for rate-limited or age-gated apps
+async function fetchSingleSteamTitle(appId: number): Promise<string | null> {
+  try {
+    const res = await fetch(`https://store.steampowered.com/api/appdetails?appids=${appId}&cc=us&l=en`, {
+      cache: 'no-store',
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.[appId]?.success && data[appId]?.data?.name) {
+        return data[appId].data.name;
+      }
+    }
+  } catch {}
 
-        // fetch via steam community hub
-        try {
-          const xmlRes = await fetch(`https://steamcommunity.com/app/${appId}?xml=1`, {
-            cache: 'no-store',
-          });
-          if (!xmlRes.ok) {
-            const text = await xmlRes.json();          
-            const match = text.match(/<appTitle><!\[CDATA\[(.*?)\]\]><\/appTitle>/) || text.match(/<appTitle>(.*?)<\/appTitle>/);
-            if (match && match[1]) {
-            return match[1].trim();
-            }
-          }
-        } catch {
-          // ignore XML timeouts
-        }
-        
-        return null;
+  try {
+    const xmlRes = await fetch(`https://steamcommunity.com/app/${appId}?xml=1`, {
+      cache: 'no-store',
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+    });
+    if (xmlRes.ok) {
+      const text = await xmlRes.text();
+      const match = text.match(/<appTitle><!\[CDATA\[(.*?)\]\]><\/appTitle>/) || text.match(/<appTitle>(.*?)<\/appTitle>/);
+      if (match && match[1]) {
+        return match[1].trim();
+      }
+    }
+  } catch {}
+
+  return null;
 }
-*/
 
 export async function syncSteamWishlist() {
   try {
@@ -234,7 +229,6 @@ export async function syncSteamWishlist() {
       return { success: false, error: 'Missing STEAM_API_KEY in environment variables.' };
     }
 
-    // Fetch Wishlist using official Steam Web API IWishlistService
     const wishlistRes = await fetch(
       `https://api.steampowered.com/IWishlistService/GetWishlist/v1/?key=${STEAM_API_KEY}&steamid=${user.steamId}`,
       { cache: 'no-store' }
@@ -269,10 +263,7 @@ export async function syncSteamWishlist() {
       igdbDetailsMap = await getIgdbDetailsForSteamApps(allAppIds, TWITCH_CLIENT_ID!, twitchToken);
     }
 
-    // Identify app IDs where IGDB failed to find game name
     const missingTitleAppIds = allAppIds.filter((appId: number) => !igdbDetailsMap[appId]?.name);
-
-    // Fetch titles directly from steam store API for missing titles
     const steamStoreTitlesMap = await batchFetchSteamStoreTitles(missingTitleAppIds);
 
     let savedCount = 0;
@@ -282,22 +273,22 @@ export async function syncSteamWishlist() {
       if (isNaN(appId)) continue;
 
       const igdbInfo = igdbDetailsMap[appId];
-      const steamStoreTitle = steamStoreTitlesMap[appId];
-      
-      const gameTitle = igdbInfo?.name || steamStoreTitle || 'CANT FIND TITLE';
-/*
-      if(!gameTitle) {
-        const fallbackTitle = await fetchSteamStoreTitle(appId);
-        gameTitle = fallbackTitle || `Steam App ${appId}`;
+      let gameTitle = igdbInfo?.name || steamStoreTitlesMap[appId];
+
+      // Direct fallback retry if title is still missing
+      if (!gameTitle) {
+        const directTitle = await fetchSingleSteamTitle(appId);
+        gameTitle = directTitle || `Steam App ${appId}`;
       }
-*/
-      let coverUrl =
+
+      // Standard Steam vertical library poster CDN fallback
+      const coverUrl =
         igdbInfo?.coverUrl ||
         `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
 
       const resolvedIgdbId = igdbInfo?.igdbId ? Number(igdbInfo.igdbId) : null;
 
-      const conditions: ({ steamAppId: number} | { igdbId: number})[] = [
+      const conditions: ({ steamAppId: number } | { igdbId: number })[] = [
         { steamAppId: appId },
       ];
       if (resolvedIgdbId) {
@@ -307,35 +298,35 @@ export async function syncSteamWishlist() {
       const existingLog = await prisma.gameLog.findFirst({
         where: {
           userId: user.id,
-           OR: conditions,
+          OR: conditions,
+        },
+      });
+
+      if (existingLog) {
+        await prisma.gameLog.update({
+          where: { id: existingLog.id },
+          data: {
+            gameTitle,
+            coverUrl,
+            steamAppId: appId,
+            status: 'WANT TO PLAY',
+            isOwned: false,
+            ...(resolvedIgdbId ? { igdbId: resolvedIgdbId } : {}),
           },
         });
-
-        if (existingLog) {
-          await prisma.gameLog.update({
-            where: { id: existingLog.id },
-            data: {
-              gameTitle,
-              coverUrl,
-              steamAppId: appId,
-              status: 'WANT TO PLAY',
-              isOwned: false,
-              ...(resolvedIgdbId ? { igdbId: resolvedIgdbId } : {}),
-            },
-          });
-        } else {
-          await prisma.gameLog.create({
-            data: {
-              userId: user.id,
-              steamAppId: appId,
-              gameTitle,
-              coverUrl,
-              status: 'WANT TO PLAY',
-              isOwned: false,
-              igdbId: resolvedIgdbId,
-            },
-      });
-    }
+      } else {
+        await prisma.gameLog.create({
+          data: {
+            userId: user.id,
+            steamAppId: appId,
+            gameTitle,
+            coverUrl,
+            status: 'WANT TO PLAY',
+            isOwned: false,
+            igdbId: resolvedIgdbId,
+          },
+        });
+      }
 
       savedCount++;
     }
@@ -347,6 +338,6 @@ export async function syncSteamWishlist() {
     return { success: true, count: savedCount };
   } catch (error) {
     console.error('Error during Steam wishlist sync:', error);
-    return { success: false, error: 'Database error during wishlist sync.' };
+    return { success: false, error: 'Failed to sync wishlist.' };
   }
 }
