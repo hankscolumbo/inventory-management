@@ -6,6 +6,8 @@ import { auth } from '@/lib/auth';
 import SignOutButton from '@/components/SignOutButton';
 import SteamSyncSection from '@/components/SteamSyncSection';
 import { prisma } from '@/lib/prisma';
+import CreateListModal from '@/components/CreateListModal';
+import UserListsGrid from '@/components/UserListsGrid';
 
 interface PageProps {
     params: Promise<{ username: string }>;
@@ -29,9 +31,22 @@ export default async function PublicProfilePage({ params }: PageProps) {
     }
 
     // determine if the current viewer owns this profile
-    const isProfileOwner =
+    const isProfileOwner: boolean =
         !!session?.user &&
         (session.user.id === user.id || session.user.email === user.email);
+
+    const customLists = await prisma.customList.findMany({
+        where: {
+            userId: user.id,
+            ...(isProfileOwner ? {} : { isPrivate: false }),
+        },
+        include: {
+            _count: {
+                select: { items: true },
+            },
+        },
+        orderBy: { updatedAt: 'desc' },
+    })
 
     const logs = user.gameLogs || [];
 
@@ -120,6 +135,14 @@ export default async function PublicProfilePage({ params }: PageProps) {
                     </div>
                 </div>
             </div>
+
+            <section className="space-y-4">
+                <div className='flex items-center justify-between'>
+                    <h2 className='text-xl font-bold text-white'>Custom Lists</h2>
+                    {isProfileOwner && <CreateListModal />}
+                </div>
+                <UserListsGrid lists={customLists} isOwner={isProfileOwner} />
+            </section>
 
             {/* Interactive Game Grid with Search, Filter Tabs & Pagination */}
             <ProfileGameGrid logs={logs} />

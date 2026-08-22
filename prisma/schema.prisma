@@ -88,22 +88,24 @@ model CustomList {
   title       String
   description String?
   isPrivate   Boolean
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt   DateTime  @default(now()) 
   updatedAt   DateTime  @updatedAt 
-  items       ListItem[]
+  
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  items       CustomListItem[]
 }
 
-model ListItem {
-  id             String     @id @default(cuid())
-  listId         String
-  list           CustomList @relation(fields: [listId], references: [id], onDelete: Cascade)
-  externalGameId Int
+model CustomListItem {
+  id               String     @id @default(cuid())
+  customListId     String
+  customList       CustomList @relation(fields: [customListId], references: [id], onDelete: Cascade)
+
   gameTitle     String
   coverUrl      String?
+  igdbId        Int?
+  steamAppId    Int?
   position      Int         @default(0)
   addedAt       DateTime    @default(now())
-
-  @@unique([listId, externalGameId])
 }
