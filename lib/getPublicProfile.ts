@@ -13,7 +13,7 @@ export async function getPublicProfile(username: string) {
         image: true,
         steamId: true,
         createdAt: true,
-        logs: {
+        gameLogs: {
             select: {
                 id: true,
                 externalGameId: true,

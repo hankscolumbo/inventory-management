@@ -21,7 +21,7 @@ model User {
   
   accounts        Account[]
   sessions        Session[]
-  gameLogs            GameLog[]
+  gameLogs        GameLog[]
   lists           CustomList[]
 }
 
@@ -80,7 +80,7 @@ model GameLog {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  @@unique([userId])
+  @@unique([userId, steamAppId, igdbId])
 }
 
 model CustomList {
