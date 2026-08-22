@@ -47,8 +47,8 @@ export default async function PublicProfilePage({ params }: PageProps) {
 
     const avgRating =
         ratings.length > 0
-        ? (ratings.reduce((acc, curr) => acc + curr, 0) / ratings.length).toFixed(1)
-        : null;
+            ? (ratings.reduce((acc, curr) => acc + curr, 0) / ratings.length).toFixed(1)
+            : null;
 
     return (
         <div className="max-w-6xl mx-auto px-6 py-10 space-y-10">
@@ -74,11 +74,9 @@ export default async function PublicProfilePage({ params }: PageProps) {
                         <h1 className="text-2xl sm:text-3xl font-extrabold text-white truncate">
                             {user.name || user.username}
                         </h1>
-                        {user.username && (
-                            <p className="text-sm font-mono text-purple-400 mt-0.5">
-                                @{user.username}
-                            </p>
-                        )}
+                            <div className="flex items-center gap-3 justify-center sm:justify-end">
+                                <SignOutButton />
+                                </div>
                     </div>
 
 
@@ -86,7 +84,6 @@ export default async function PublicProfilePage({ params }: PageProps) {
                     {isProfileOwner && (
                         <div className="flex items-center gap-3 justify-center sm:justify-end">
                             <SteamSyncSection steamId={user.steamId} isOwner={isProfileOwner} />
-                            <SignOutButton />
                         </div>
                     )}
 
@@ -108,15 +105,24 @@ export default async function PublicProfilePage({ params }: PageProps) {
                             <span className="font-extrabold text-cyan-400 text-lg block">{wantToPlayCount}</span>
                             <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Want To Play</span>
                         </div>
+                        {/*
                         <div className="border-l border-slate-800 pl-6">
                             <span className="font-extrabold text-amber-400 text-lg block">{backlogCount}</span>
                             <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Backlog</span>
                         </div>
+                        */}
+                        {avgRating && (
+                            <div className="border-l border-slate-800 pl-6">
+                                <span className="font-extrabold text-amber-300 text-lg block">★ {avgRating}</span>
+                                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Avg Rating</span>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
+
             {/* Interactive Game Grid with Search, Filter Tabs & Pagination */}
             <ProfileGameGrid logs={logs} />
-        </div>
+        </div >
     );
 }

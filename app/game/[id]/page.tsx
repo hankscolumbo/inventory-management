@@ -344,6 +344,7 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
                 Playing
               </span>
             </div>
+            {/*
             <div className="border-l border-slate-800 pl-6">
               <span className="font-extrabold text-amber-400 text-base block">
                 {stats.backlogCount}
@@ -352,6 +353,7 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
                 Backlog
               </span>
             </div>
+            */}
           </div>
 
           {/* Summary */}

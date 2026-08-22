@@ -1,7 +1,7 @@
 // components/LogFilters.tsx
 'use client';
 
-export type StatusFilter = 'ALL' | 'PLAYED' | 'PLAYING' | 'BACKLOG';
+export type StatusFilter = 'ALL' | 'PLAYED' | 'PLAYING' | 'WANT TO PLAY';
 export type SortOption = 'NEWEST' | 'OLDEST' | 'RATING_HIGH' | 'RATING_LOW';
 
 interface LogFiltersProps {
@@ -25,7 +25,7 @@ export default function LogFilters({
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
       {/* Status Tabs */}
       <div className="flex gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800/80">
-        {(['ALL', 'PLAYED', 'PLAYING', 'BACKLOG'] as const).map((s) => (
+        {(['ALL', 'PLAYED', 'PLAYING', 'WANT TO PLAY'] as const).map((s) => (
           <button
             key={s}
             onClick={() => setStatus(s)}

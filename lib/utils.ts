@@ -5,5 +5,5 @@ export function getIGDBCoverURL(url?: string): string {
     const fullUrl = url.startsWith('//') ? 'https:${url}' : url;
 
     // replace thumbnail resolution with larger cover art
-    return fullUrl.replace('t_thumb', 't_cover_big');
+    return fullUrl.replace('t_thumb', 't_cover_1080p');
 }

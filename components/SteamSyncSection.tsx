@@ -213,7 +213,7 @@ export default function SteamSyncSection({ steamId, isOwner }: SteamSyncSectionP
             <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider block">Option 3</span>
             <h3 className="text-sm font-bold text-white mt-1">Flag Owned Games</h3>
             <p className="text-xs text-slate-400 mt-1">
-              Marks <span className="text-slate-200">isOwned = true</span> on existing collection logs without adding new games.
+              Check Steam library and marks <span className="text-slate-200">isOwned = true</span> on existing collection logs without adding new games.
             </p>
           </div>
           <button

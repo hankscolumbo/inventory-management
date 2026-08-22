@@ -13,7 +13,7 @@ interface LogModalProps {
         isSteamApp?: boolean;
     };
     initialLog?: {
-        status?: 'PLAYED' | 'PLAYING' | 'WANT TO PLAY' | 'BACKLOG';
+        status?: 'PLAYED' | 'PLAYING' | 'WANT TO PLAY' ;
         rating?: number | null;
         playtimeHours?: number | null;
         isOwned?: boolean | null;
@@ -28,11 +28,11 @@ export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
 
     const [rating, setRating] = useState<number | ''>(initialLog?.rating ?? '');
     const [review, setReview] = useState('');
-    const [status, setStatus] = useState<'PLAYED' | 'PLAYING' | 'WANT TO PLAY' | 'BACKLOG'>(initialLog?.status || 'PLAYED');
+    const [status, setStatus] = useState<'PLAYED' | 'PLAYING' | 'WANT TO PLAY' >(initialLog?.status || 'PLAYED');
     const [isOwned, setIsOwned] = useState<boolean>(initialLog?.isOwned ?? status !== 'WANT TO PLAY');
     const [playtimeHours, setPlaytimeHours] = useState<number | ''>(initialLog?.playtimeHours ?? '');
 
-    const handleStatusChange = (selectedStatus: 'PLAYED' | 'PLAYING' | 'WANT TO PLAY' | 'BACKLOG') => {
+    const handleStatusChange = (selectedStatus: 'PLAYED' | 'PLAYING' | 'WANT TO PLAY' ) => {
         setStatus(selectedStatus);
 
         // Automatically uncheck "I own this game" for Wishlist items
@@ -43,37 +43,6 @@ export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
             setIsOwned(true);
         }
     };
-
-    /*
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-
-        try {
-            // call existing logGame server action or API route
-            const res = await logGame({
-                externalGameId: Number(game.id),
-                gameTitle: game.name,
-                coverUrl: game.coverUrl ?? undefined,
-                rating,
-                review,
-                status,
-                isOwned,
-            });
-
-            if (res.success) {
-                onClose();
-            } else {
-                alert(res.error || 'Failed to save log');
-            }
-        } catch (error) {
-            console.error('Failed to log game:', error);
-            alert('An error occured while saving.');
-        } finally {
-            setLoading(false);
-        }
-    };
-*/
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -124,7 +93,7 @@ export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
                             Status
                         </label>
                         <div className="grid grid-cols-3 gap-2">
-                            {(['PLAYED', 'PLAYING', 'WANT TO PLAY', 'BACKLOG'] as const).map((s) => (
+                            {(['PLAYED', 'PLAYING', 'WANT TO PLAY'] as const).map((s) => (
                                 <button
                                     key={s}
                                     type="button"

@@ -22,7 +22,7 @@ export async function getGameCommunityData(input: GameCommunityDataInput | numbe
       totalLogs: 0,
       playedCount: 0,
       playingCount: 0,
-      backlogCount: 0,
+      //backlogCount: 0,
     };
   }
 
@@ -39,7 +39,7 @@ export async function getGameCommunityData(input: GameCommunityDataInput | numbe
     const totalLogs = logs.length;
     const playedCount = logs.filter((l) => l.status === 'PLAYED').length;
     const playingCount = logs.filter((l) => l.status === 'PLAYING').length;
-    const backlogCount = logs.filter((l) => l.status === 'BACKLOG').length;
+    //const backlogCount = logs.filter((l) => l.status === 'BACKLOG').length;
 
     // Calculate average rating ignoring null values
     const ratedLogs = logs.filter((l) => l.rating !== null && l.rating !== undefined);
@@ -51,7 +51,7 @@ export async function getGameCommunityData(input: GameCommunityDataInput | numbe
       totalLogs,
       playedCount,
       playingCount,
-      backlogCount,
+      //backlogCount,
       avgRating,
     };
   }
