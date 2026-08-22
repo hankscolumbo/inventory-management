@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import ProfileGameGrid from '@/components/ProfileGameGrid';
 import { auth } from '@/lib/auth';
 import SignOutButton from '@/components/SignOutButton';
-import SteamSyncSection from '@/components/SteamSyncSection';
+import SteamSyncModal from '@/components/SteamSyncModal';
 import { prisma } from '@/lib/prisma';
 import CreateListModal from '@/components/CreateListModal';
 import UserListsGrid from '@/components/UserListsGrid';
@@ -89,18 +89,17 @@ export default async function PublicProfilePage({ params }: PageProps) {
                         <h1 className="text-2xl sm:text-3xl font-extrabold text-white truncate">
                             {user.name || user.username}
                         </h1>
-                            <div className="flex items-center gap-3 justify-center sm:justify-end">
-                                <SignOutButton />
-                                </div>
+                        {/* ONLY RENDER SYNC BUTTON IF VIEWER OWN PROFILE */}
+                    {isProfileOwner && (
+                        <div className="flex items-center gap-3 justify-center sm:justify-end">
+                            <SteamSyncModal steamId={user.steamId} isOwner={isProfileOwner} />
+                            <SignOutButton />
+                        </div>
+                    )}
                     </div>
 
 
-                    {/* ONLY RENDER SYNC BUTTON IF VIEWER OWN PROFILE */}
-                    {isProfileOwner && (
-                        <div className="flex items-center gap-3 justify-center sm:justify-end">
-                            <SteamSyncSection steamId={user.steamId} isOwner={isProfileOwner} />
-                        </div>
-                    )}
+                    
 
                     {/* Stat Counters */}
                     <div className="flex flex-wrap justify-center sm:justify-start gap-6 pt-2 border-t border-slate-800/80">

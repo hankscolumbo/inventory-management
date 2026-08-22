@@ -207,7 +207,7 @@ export default function SteamSyncSection({ steamId, isOwner }: SteamSyncSectionP
           </button>
         </div>
 
-        {/* Sync Owned Flag */}
+        {/* Sync Owned Flag 
         <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between space-y-3">
           <div>
             <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider block">Option 3</span>
@@ -224,6 +224,7 @@ export default function SteamSyncSection({ steamId, isOwner }: SteamSyncSectionP
             {loadingAction === 'owned' ? 'Syncing...' : 'Sync Owned Status'}
           </button>
         </div>
+        */}
       </div>
     </div>
   );
