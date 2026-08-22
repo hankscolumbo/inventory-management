@@ -231,7 +231,7 @@ export async function syncSteamGames() {
                             steamAppId: appId,
                             gameTitle,
                             coverUrl,
-                            status,
+                            status: 'PLAYED',
                             isOwned: true,
                             igdbId: resolvedIgdbId,
                             playtimeHours,
