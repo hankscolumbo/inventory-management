@@ -2,9 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import LogModal from '@/components/LogModal';
-//import { useRouter } from 'next/navigation';
-import { useSession, signIn } from 'next-auth/react';
+import LogModal from './LogModal';
 
 interface LogGameButtonProps {
   game: {
@@ -13,34 +11,25 @@ interface LogGameButtonProps {
     coverUrl?: string | null;
     isSteamApp?: boolean;
   };
+  initialLog?: any;
 }
 
-export default function LogGameButton({ game }: LogGameButtonProps) {
+export default function LogGameButton({ game, initialLog }: LogGameButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
-  //const router = useRouter();
-  const { data: session } = useSession();
-
-  const handleClick = () => {
-    if (!session) {
-        signIn();
-    } else {
-        setIsOpen(true);
-    }
-};
 
   return (
     <>
       <button
-        type="button"
-        onClick={handleClick}
-        className="w-full max-w-48 bg-purple-600 hover:bg-purple-500 text-white font-medium py-2.5 rounded-lg text-sm transition shadow-lg"
+        onClick={() => setIsOpen(true)}
+        className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl shadow-lg transition"
       >
-        Log This Game
+        {initialLog ? 'Edit Your Log' : '+ Log Game'}
       </button>
 
       {isOpen && (
         <LogModal
           game={game}
+          initialLog={initialLog}
           onClose={() => setIsOpen(false)}
         />
       )}

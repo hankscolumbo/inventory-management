@@ -1,8 +1,10 @@
 // app/game/[id]/page.tsx
-import { getGameCommunityData } from '@/lib/getGameCommunityData'; // aka GameStats
+import { getGameCommunityData } from '@/lib/getGameCommunityData';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import LogGameButton from '@/components/LogGameButton';
+import { auth } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
 interface GamePageProps {
   params: Promise<{
@@ -17,19 +19,14 @@ function cleanDescription(text: string): string {
   if (!text) return 'No overview available for this title.';
 
   return text
-    // 1. Convert HTML line breaks to standard newlines
     .replace(/<br\s*[\/]?>/gi, '\n')
-    // 2. Strip out all remaining HTML tags (e.g. <p>, <strong>, <div>)
     .replace(/<[^>]*>/g, '')
-    // 3. Strip BBCode tags (e.g. [b], [/b], [i], [h1])
     .replace(/\[\/?\w+\]/g, '')
-    // 4. Decode common HTML entities
     .replace(/&quot;/g, '"')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&#39;/g, "'")
-    // 5. Trim duplicate line breaks and whitespace
     .replace(/\n\s*\n/g, '\n\n')
     .trim();
 }
@@ -39,11 +36,10 @@ async function getTwitchToken(): Promise<string | null> {
   const clientSecret = process.env.TWITCH_CLIENT_SECRET?.trim();
 
   if (!clientId || !clientSecret) {
-    console.error('[IGDB Auth Error] Missing Twitch Client ID or Twitch Client Secret');
+    console.error('[IGDB Auth Error] Missing Twitch Client ID or Secret');
     return null;
   }
 
-  // Get Twitch OAuth Token
   try {
     const tokenRes = await fetch(
       `https://id.twitch.tv/oauth2/token?client_id=${clientId}&client_secret=${clientSecret}&grant_type=client_credentials`,
@@ -51,14 +47,11 @@ async function getTwitchToken(): Promise<string | null> {
     );
 
     const tokenData = await tokenRes.json();
-    console.log('Generated Token:', tokenData.access_token ? 'SUCCESS' : tokenData);
-
     if (!tokenRes.ok || !tokenData.access_token) {
       console.error('Twitch token request failed:', tokenData);
       return null;
     }
-    const accessToken = tokenData.access_token;
-    return accessToken;
+    return tokenData.access_token;
   } catch (err) {
     console.error('[Twitch OAuth Exception]:', err);
     return null;
@@ -83,7 +76,7 @@ async function getGameDetails(gameId: string, isSteamAppExplicit: boolean) {
 
     let game: any = null;
 
-    // STEP 1: DIRECT IGDB GAME ID TO LOOKUP
+    // STEP 1: Direct IGDB Game ID Lookup
     if (!isSteamAppExplicit && clientId && token) {
       try {
         const igdbRes = await fetch('https://api.igdb.com/v4/games', {
@@ -97,7 +90,7 @@ async function getGameDetails(gameId: string, isSteamAppExplicit: boolean) {
           const games = await igdbRes.json();
           if (Array.isArray(games) && games.length > 0) {
             game = games[0];
-            return{
+            return {
               igdbId: Number(game.id),
               steamAppId: null as number | null,
               name: game.name || 'Untitled Game',
@@ -119,7 +112,7 @@ async function getGameDetails(gameId: string, isSteamAppExplicit: boolean) {
       }
     }
 
-    // STEP 2: If the direct IGDB lookup didnt find anything, try IDGB Steam lookup
+    // STEP 2: IGDB Steam UID Lookup
     if (clientId && token) {
       try {
         const externalRes = await fetch('https://api.igdb.com/v4/external_games', {
@@ -133,8 +126,8 @@ async function getGameDetails(gameId: string, isSteamAppExplicit: boolean) {
           const externalData = await externalRes.json();
           if (Array.isArray(externalData) && externalData.length > 0 && externalData[0]?.game) {
             game = externalData[0].game;
-            return{
-              igdbdId: Number(game.id),
+            return {
+              igdbId: Number(game.id), // ✅ Fixed igdbdId typo
               steamAppId: numericId,
               name: game.name || 'Untitled Game',
               summary: cleanDescription(game.summary),
@@ -151,11 +144,11 @@ async function getGameDetails(gameId: string, isSteamAppExplicit: boolean) {
           }
         }
       } catch (e) {
-        console.error('[IGDB External Games Lookup Error:', e);
+        console.error('[IGDB External Games Lookup Error]:', e);
       }
     }
 
-    // STEP 3: Steam Store API Fallback (for unmapped indie games)      
+    // STEP 3: Steam Store API Fallback
     if (!game) {
       try {
         const steamStoreRes = await fetch(
@@ -173,16 +166,14 @@ async function getGameDetails(gameId: string, isSteamAppExplicit: boolean) {
               steamAppId: numericId,
               name: steamDetails.name,
               summary: cleanDescription(rawSummary),
-              coverUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${gameId}/library_600x900.jpg`
-                ? `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${numericId}/library_600x900.jpg`
-                : null,
+              coverUrl: `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${numericId}/library_600x900.jpg`,
               genres: Array.isArray(steamDetails.genres)
                 ? steamDetails.genres?.map((g: any) => g.description)
                 : [],
               platforms: ['PC'],
               releaseYear: steamDetails.release_date?.date
                 ? new Date(steamDetails.release_date.date).getFullYear() || null
-                : null
+                : null,
             };
           }
         }
@@ -190,44 +181,14 @@ async function getGameDetails(gameId: string, isSteamAppExplicit: boolean) {
         console.error('Steam Store API Fallback Failed:', e);
       }
     }
-/*
-    // Return only if all 3 lookup strategies fail
-    if (!game) return null;
 
-    const coverUrl = game.cover?.url
-      ? `https:${game.cover.url.replace('t_thumb', 't_1080p')}`
-      : `https://cdn.cloudflare.steamstatic.com/steam/apps/${gameId}/library_600x900.jpg`;
-
-    const releaseYear = game.first_release_date
-      ? new Date(game.first_release_date * 1000).getFullYear()
-      : null;
-
-    const genres = Array.isArray(game.genres)
-      ? game.genres?.map((g: { name: string }) => g.name)
-      : [];
-
-    const platforms = Array.isArray(game.platforms)
-      ? game.platforms?.map((p: any) => p.name)
-      : [];
-
-    return {
-      id: game.id || numericId,
-      name: game.name || 'Untitled Game',
-      summary: cleanDescription(game.summary) || 'No description available for this game.',
-      coverUrl,
-      releaseYear,
-      genres,
-      platforms,
-    };
-    */
-   return null;
+    return null;
   } catch (err) {
     console.error('Error fetching game details:', err);
     return null;
   }
 }
 
-// 2. PAGE COMPONENT
 export default async function GameDetailsPage({ params, searchParams }: GamePageProps) {
   const { id } = await params;
   const resolvedSearchParams = searchParams ? await searchParams : {};
@@ -239,7 +200,37 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
     notFound();
   }
 
-  // Fetch community stats using both igdbId and steamAppId to match all user logs
+  // Fetch Session & Active User's Existing Log
+  const session = await auth();
+  let existingLog = null;
+
+  if (session?.user) {
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          ...(session.user.id ? [{ id: session.user.id }] : []),
+          ...(session.user.email ? [{ email: session.user.email }] : []),
+        ],
+      },
+    });
+
+    if (user) {
+      const conditions: any[] = [];
+      if (game.igdbId) conditions.push({ igdbId: game.igdbId });
+      if (game.steamAppId) conditions.push({ steamAppId: game.steamAppId });
+
+      if (conditions.length > 0) {
+        existingLog = await prisma.gameLog.findFirst({
+          where: {
+            userId: user.id,
+            OR: conditions,
+          },
+        });
+      }
+    }
+  }
+
+  // Fetch Community Stats
   const stats = await getGameCommunityData({
     igdbId: game.igdbId ?? null,
     steamAppId: game.steamAppId ?? null,
@@ -280,7 +271,6 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
           {/* Header / Meta Bar */}
           <div className="flex flex-wrap items-center justify-between gap-4 w-full border-b border-slate-800 pb-4">
             <h1 className="text-3xl font-extrabold text-white">{game.name}</h1>
-            {/* Left Side: Genre Badges */}
             <div className="flex flex-wrap items-center gap-2">
               {Array.isArray(game.genres) && game.genres.length > 0 ? (
                 game.genres.map((genre: string) => (
@@ -296,7 +286,6 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
               )}
             </div>
 
-            {/* Right Side: Release Year */}
             {game.releaseYear && (
               <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-purple-400 bg-purple-950/40 border border-purple-800/40 px-3 py-1 rounded-lg shrink-0">
                 <svg className="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -305,12 +294,9 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
                 {game.releaseYear}
               </div>
             )}
-
           </div>
 
-
-
-          {/* COMMUNITY STATS BAR */}
+          {/* Community Stats Bar */}
           <div className="flex flex-wrap gap-6 py-3 px-4 bg-slate-950 border border-slate-800 rounded-xl text-xs">
             <div>
               <span className="font-extrabold text-white text-base block">
@@ -344,19 +330,9 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
                 Playing
               </span>
             </div>
-            {/*
-            <div className="border-l border-slate-800 pl-6">
-              <span className="font-extrabold text-amber-400 text-base block">
-                {stats.backlogCount}
-              </span>
-              <span className="text-slate-400 uppercase tracking-wider font-semibold text-[10px]">
-                Backlog
-              </span>
-            </div>
-            */}
           </div>
 
-          {/* Summary */}
+          {/* Overview */}
           <div className="space-y-2">
             <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">Overview</h3>
             <p className="text-sm text-slate-300 leading-relaxed">{game.summary}</p>
@@ -373,9 +349,20 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
             coverUrl: game.coverUrl,
             isSteamApp: !game.igdbId && Boolean(game.steamAppId),
           }}
+          initialLog={
+            existingLog
+              ? {
+                  status: existingLog.status as any,
+                  rating: existingLog.rating,
+                  playtimeHours: existingLog.playtimeHours,
+                  platforms: existingLog.platforms || [],
+                  isOwned: existingLog.isOwned,
+                  review: (existingLog as any).review || '',
+                }
+              : undefined
+          }
         />
       </div>
-
     </main>
   );
 }

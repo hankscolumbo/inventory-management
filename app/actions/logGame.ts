@@ -19,6 +19,7 @@ interface LogInput {
   playtimeHours?: number | null;
   isOwned?: boolean;
   isSteamApp?: boolean; // Flag if input is comes from STEAM
+  platforms?: string[];
 }
 
 export async function logGame(input: LogInput) {
@@ -63,6 +64,8 @@ export async function logGame(input: LogInput) {
     const igdbId = input.isSteamApp ? null : numericGameId;
     const steamAppId = input.isSteamApp ? numericGameId : null;
 
+    const platforms = input.platforms || [];
+
     const existingLog = await prisma.gameLog.findFirst({
       where: {
         userId: session.user.id,
@@ -83,6 +86,7 @@ export async function logGame(input: LogInput) {
             review: input.review ?? null,
             status: input.status,
             playedOn: new Date(),
+            platforms,
             playtimeHours: input.playtimeHours ?? null,
             ...(igdbId && { igdbId }),
             ...(steamAppId && { steamAppId }),
@@ -100,6 +104,7 @@ export async function logGame(input: LogInput) {
             rating: input.rating ?? null,
             review: input.review ?? null,
             status: input.status,
+            platforms,
             playtimeHours: input.playtimeHours ?? null,
             isOwned: input.isOwned ?? false,
         },
