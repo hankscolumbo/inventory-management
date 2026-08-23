@@ -52,8 +52,10 @@ export default function CreateListModal({ onSuccess }: CreateListModalProps) {
       setIsOpen(false);
       setLoading(false);
 
-      router.refresh();
-      if (onSuccess) onSuccess();
+      if (res.listId) {
+        router.push(`/lists/${res.listId}`);
+        router.refresh();
+      }
     } catch (err) {
       console.error('Error creating list:', err);
       setError('An unexpected error occurred while creating your list.');

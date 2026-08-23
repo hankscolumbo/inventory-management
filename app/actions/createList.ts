@@ -50,11 +50,6 @@ export async function createList(data: CreateListInput) {
       },
     });
 
-    revalidatePath('/profile');
-    if (user.username) {
-      revalidatePath(`/u/${user.username}`);
-    }
-
     return { success: true, listId: newList.id };
   } catch (error) {
     console.error('Error creating list:', error);
