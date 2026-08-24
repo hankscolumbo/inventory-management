@@ -1,10 +1,11 @@
 // app/game/[id]/page.tsx
 import { getGameCommunityData } from '@/lib/getGameCommunityData';
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
-import LogGameButton from '@/components/LogGameButton';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import Link from 'next/link';
+import LogGameButton from '@/components/LogGameButton';
+import AddToListModal from '@/components/AddToListModal';
 
 interface GamePageProps {
   params: Promise<{
@@ -204,6 +205,8 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
   const session = await auth();
   let existingLog = null;
 
+  let userLists: { id: string; title: string }[] =[];
+
   if (session?.user) {
     const user = await prisma.user.findFirst({
       where: {
@@ -212,9 +215,17 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
           ...(session.user.email ? [{ email: session.user.email }] : []),
         ],
       },
+      include: {
+        customLists: {
+          select: { id: true, title: true },
+          orderBy: { updatedAt: 'desc' },
+        },
+      },
     });
 
     if (user) {
+      userLists = user.customLists || [];
+
       const conditions: any[] = [];
       if (game.igdbId) conditions.push({ igdbId: game.igdbId });
       if (game.steamAppId) conditions.push({ steamAppId: game.steamAppId });
@@ -362,6 +373,20 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
               : undefined
           }
         />
+      </div>
+      {/* Client Interactive Action Buttons */}
+      <div className="flex items-center justify-end gap-3">
+        {session?.user && userLists.length > 0 && (
+          <AddToListModal
+          game={{
+            name: game.name,
+            coverUrl: game.coverUrl,
+            igdbId: game.igdbId,
+            steamAppId: game.steamAppId,
+          }}
+          userLists={userLists}
+          />
+        )}
       </div>
     </main>
   );

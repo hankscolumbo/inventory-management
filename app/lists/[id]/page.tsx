@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
-import AddGameToListModal from '@/components/AddGameToListModal';
+import AddGamesToListModal from '@/components/AddGamesToListModal';
 import CustomListItemsManager from '@/components/CustomListItemsManager';
 
 interface PageProps {
@@ -58,7 +58,7 @@ export default async function ListDetailsPage({ params }: PageProps) {
             </p>
           </div>
 
-          {isOwner && <AddGameToListModal customListId={list.id} />}
+          {isOwner && <AddGamesToListModal customListId={list.id} />}
         </div>
       </div>
 

@@ -22,7 +22,7 @@ model User {
   accounts        Account[]
   sessions        Session[]
   gameLogs        GameLog[]
-  lists           CustomList[]
+  customLists     CustomList[]
 }
 
 model Account {

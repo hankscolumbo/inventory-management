@@ -1,4 +1,4 @@
-// components/AddGameToListModal.tsx
+// components/AddGamesToListModal.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -11,7 +11,7 @@ interface AddGameToListModalProps {
   customListId: string;
 }
 
-export default function AddGameToListModal({ customListId }: AddGameToListModalProps) {
+export default function AddGamesToListModal({ customListId }: AddGameToListModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchGameResult[]>([]);
