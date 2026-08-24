@@ -108,6 +108,7 @@ model CustomListItem {
   coverUrl      String?
   igdbId        Int?
   steamAppId    Int?
+  note          String?
   position      Int         @default(0)
   addedAt       DateTime    @default(now())
 }

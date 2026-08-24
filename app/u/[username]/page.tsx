@@ -90,16 +90,16 @@ export default async function PublicProfilePage({ params }: PageProps) {
                             {user.name || user.username}
                         </h1>
                         {/* ONLY RENDER SYNC BUTTON IF VIEWER OWN PROFILE */}
-                    {isProfileOwner && (
-                        <div className="flex items-center gap-3 justify-center sm:justify-end">
-                            <SteamSyncModal steamId={user.steamId} isOwner={isProfileOwner} />
-                            <SignOutButton />
-                        </div>
-                    )}
+                        {isProfileOwner && (
+                            <div className="flex items-center gap-3 justify-center sm:justify-end">
+                                <SteamSyncModal steamId={user.steamId} isOwner={isProfileOwner} />
+                                <SignOutButton />
+                            </div>
+                        )}
                     </div>
 
 
-                    
+
 
                     {/* Stat Counters */}
                     <div className="flex flex-wrap justify-center sm:justify-start gap-6 pt-2 border-t border-slate-800/80">
