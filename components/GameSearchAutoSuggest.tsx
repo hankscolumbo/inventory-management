@@ -77,7 +77,7 @@ export default function GameSearchAutoSuggest() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => query.trim() && setIsOpen(true)}
-          placeholder="Search games (e.g. Elden Ring, Zelda)..."
+          placeholder="Search games (e.g. Zelda, Halo, Skyrim)..."
           className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 pl-11 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 shadow-xl transition"
         />
 
@@ -109,6 +109,7 @@ export default function GameSearchAutoSuggest() {
                 key={game.id}
                 className="flex items-center justify-between p-3 hover:bg-slate-800/60 transition group"
               >
+                {/* Game Details Link */}
                 <Link
                   href={`/game/${game.id}`}
                   onClick={() => setIsOpen(false)}
@@ -152,7 +153,7 @@ export default function GameSearchAutoSuggest() {
                           title="Add to List"
                           className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition text-xs"
                         >
-                          📋
+                        <span>📋</span>
                         </button>
                       }
                     />
@@ -170,7 +171,7 @@ export default function GameSearchAutoSuggest() {
                         title="Log Game"
                         className="p-1.5 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 rounded-lg transition text-xs"
                       >
-                        ➕
+                        <span>➕</span> Log
                       </button>
                     }
                   />

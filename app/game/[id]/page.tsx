@@ -32,6 +32,27 @@ function cleanDescription(text: string): string {
     .trim();
 }
 
+function parseReleaseInfo(timestamp?: number | null, fallbackDateStr?: string | null, comingSoonFallback?: boolean) {
+  if (timestamp) {
+    const releaseDate = new Date(timestamp * 1000);
+    const isUpcoming = releaseDate.getTime() > Date.now();
+    const formatted = releaseDate.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+    return { releaseDate: formatted, isUpcoming, releaseYear: releaseDate.getFullYear() };
+  }
+
+  if (fallbackDateStr) {
+    const parsedDate = Date.parse(fallbackDateStr);
+    const isUpcoming = comingSoonFallback || (!isNaN(parsedDate) && parsedDate > Date.now());
+    return { releasedDate: fallbackDateStr, isUpcoming, releaseYear: !isNaN(parsedDate) ? new Date(parsedDate).getFullYear() : null };
+  }
+
+  return { releasedDate: null, isUpcoming: false, releaseYear: null };
+}
+
 async function getTwitchToken(): Promise<string | null> {
   const clientId = process.env.TWITCH_CLIENT_ID?.trim();
   const clientSecret = process.env.TWITCH_CLIENT_SECRET?.trim();
@@ -91,6 +112,8 @@ async function getGameDetails(gameId: string, isSteamAppExplicit: boolean) {
           const games = await igdbRes.json();
           if (Array.isArray(games) && games.length > 0) {
             game = games[0];
+            const { releaseDate, isUpcoming, releaseYear } = parseReleaseInfo(game.first_release_date);
+
             return {
               igdbId: Number(game.id),
               steamAppId: null as number | null,
@@ -99,9 +122,9 @@ async function getGameDetails(gameId: string, isSteamAppExplicit: boolean) {
               coverUrl: game.cover?.url
                 ? `https:${game.cover.url.replace('t_thumb', 't_1080p')}`
                 : null,
-              releaseYear: game.first_release_date
-                ? new Date(game.first_release_date * 1000).getFullYear()
-                : null,
+              releaseYear,
+              releaseDate,
+              isUpcoming,
               genres: Array.isArray(game.genres)
                 ? game.genres.map((g: { name: string }) => g.name)
                 : [],
@@ -127,6 +150,8 @@ async function getGameDetails(gameId: string, isSteamAppExplicit: boolean) {
           const externalData = await externalRes.json();
           if (Array.isArray(externalData) && externalData.length > 0 && externalData[0]?.game) {
             game = externalData[0].game;
+            const { releaseDate, isUpcoming, releaseYear } = parseReleaseInfo(game.first_release_date);
+
             return {
               igdbId: Number(game.id), // ✅ Fixed igdbdId typo
               steamAppId: numericId,
@@ -135,9 +160,9 @@ async function getGameDetails(gameId: string, isSteamAppExplicit: boolean) {
               coverUrl: game.cover?.url
                 ? `https:${game.cover.url.replace('t_thumb', 't_1080p')}`
                 : `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${numericId}/library_600x900.jpg`,
-              releaseYear: game.first_release_date
-                ? new Date(game.first_release_date * 1000).getFullYear()
-                : null,
+              releaseYear,
+              releaseDate,
+              isUpcoming,
               genres: Array.isArray(game.genres)
                 ? game.genres.map((g: { name: string }) => g.name)
                 : [],
@@ -161,6 +186,11 @@ async function getGameDetails(gameId: string, isSteamAppExplicit: boolean) {
           if (steamStoreData?.[gameId]?.success) {
             const steamDetails = steamStoreData[gameId].data;
             const rawSummary = steamDetails.short_description || steamDetails.about_the_game || '';
+            const { releaseDate, isUpcoming, releaseYear } = parseReleaseInfo(
+              null,
+              steamDetails.release_date?.date,
+              steamDetails.release_date?.coming_soon
+            );
 
             return {
               igdbId: null as number | null,
@@ -172,9 +202,9 @@ async function getGameDetails(gameId: string, isSteamAppExplicit: boolean) {
                 ? steamDetails.genres?.map((g: any) => g.description)
                 : [],
               platforms: ['PC'],
-              releaseYear: steamDetails.release_date?.date
-                ? new Date(steamDetails.release_date.date).getFullYear() || null
-                : null,
+              releaseYear,
+              releaseDate,
+              isUpcoming,
             };
           }
         }
@@ -297,12 +327,20 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
               )}
             </div>
 
-            {game.releaseYear && (
-              <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-purple-400 bg-purple-950/40 border border-purple-800/40 px-3 py-1 rounded-lg shrink-0">
-                <svg className="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {/* Release Date Badge */}
+            {game.releaseDate && (
+              <div
+                className={`flex items-center gap-1.5 text-xs font-mono font-bold px-3 py-1 rounded-lg shrink-0 border ${
+                  game.isUpcoming
+                    ? 'bg-emerald-950/60 border-emerald-800/80 text-emerald-400'
+                    : 'bg-purple-950/40 border-purple-800/40 text-purple-400'
+                }`}
+                >
+                {/*<svg className="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                {game.releaseYear}
+                </svg>*/}
+                <span>{game.isUpcoming ? '🚀 Releases:' : '🗓️ Released:'}</span>
+                <span>{game.releaseDate}</span>
               </div>
             )}
           </div>
