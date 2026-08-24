@@ -73,7 +73,7 @@ export default async function ListDetailsPage({ params }: PageProps) {
             </p>
           </div>
 
-          {isOwner && <AddGameToListModal customListId={list.id} userGames={userLogs} />}
+          {isOwner && <AddGameToListModal customListId={list.id} />}
         </div>
       </div>
 
