@@ -19,6 +19,30 @@ async function getTwitchToken() {
   }
 }
 
+// Helper to filter out remaining special editions, bundles, and DLC passes
+function isBaseGameTitle(title: string): boolean {
+  const lowercaseTitle = title.toLowerCase();
+  const excludedKeywords = [
+    'deluxe edition',
+    'gold edition',
+    'ultimate edition',
+    'collector\'s edition',
+    'complete edition',
+    'game of the year',
+    'goty',
+    'season pass',
+    'dlc pack',
+    'expansion pass',
+    'character pass',
+    'soundtrack',
+    'bundle',
+    'day one edition',
+    'tactical edition',
+  ];
+
+  return !excludedKeywords.some((keyword) => lowercaseTitle.includes(keyword));
+}
+
 export interface SearchGameResult {
   igdbId: number;
   gameTitle: string;
@@ -43,7 +67,7 @@ export async function searchGamesForList(query: string): Promise<SearchGameResul
         'Content-Type': 'text/plain',
       },
       cache: 'no-store',
-      body: `fields name, cover.url; search "${cleanQuery}"; limit 15;`,
+      body: `fields name, cover.url; search "${cleanQuery}"; where game_type = (0, 4, 8, 9); limit 15;`,
     });
 
     if (!res.ok) return [];
@@ -51,7 +75,9 @@ export async function searchGamesForList(query: string): Promise<SearchGameResul
 
     if (!Array.isArray(games)) return [];
 
-    return games.map((game: any) => {
+    const baseGamesOnly = games.filter((game: any) => isBaseGameTitle(game.name));
+
+    return baseGamesOnly.slice(0, 15).map((game: any) => {
       const rawCover = game.cover?.url;
       const coverUrl = rawCover
         ? `https:${rawCover.replace('t_thumb', 't_1080p')}`

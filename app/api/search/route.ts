@@ -13,6 +13,30 @@ interface IGDBGame {
     parent_game?: number;
 }
 
+// Helper to filter out remaining special editions, bundles, and DLC passes
+function isBaseGameTitle(title: string): boolean {
+  const lowercaseTitle = title.toLowerCase();
+  const excludedKeywords = [
+    'deluxe edition',
+    'gold edition',
+    'ultimate edition',
+    'collector\'s edition',
+    'complete edition',
+    'game of the year',
+    'goty',
+    'season pass',
+    'dlc pack',
+    'expansion pass',
+    'character pass',
+    'soundtrack',
+    'bundle',
+    'day one edition',
+    'tactical edition',
+  ];
+
+  return !excludedKeywords.some((keyword) => lowercaseTitle.includes(keyword));
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -51,7 +75,7 @@ export async function GET(request: Request) {
     const numericLimit: number = limit ? parseInt(limit, 10) : 50;
     const fetchLimit = Math.min(numericLimit * 2, 100);
 
-    const bodyPayload = `search "${searchQuery}"; fields name, cover.url, first_release_date, hypes, follows, rating_count, version_parent.id, parent_game.id; limit ${fetchLimit};`;
+    const bodyPayload = `search "${searchQuery}"; fields name, cover.url, first_release_date, hypes, follows, rating_count, version_parent.id, parent_game.id; where game_type = (0, 4, 8, 9); limit ${fetchLimit};`;
 
     // 2. Query IGDB for games matching query
     const igdbRes = await fetch('https://api.igdb.com/v4/games', {
@@ -72,9 +96,11 @@ export async function GET(request: Request) {
 
     const rawGames : IGDBGame[] = await igdbRes.json();
 
+    const baseGamesOnly = rawGames.filter((game: any) => isBaseGameTitle(game.name));
+
     const seenTitles = new Map<string, IGDBGame>();
 
-    for (const game of rawGames) {
+    for (const game of baseGamesOnly) {
         const normalizedTitle = game.name
             .toLowerCase()
             .replace(/[^a-z0-9]/g, '');
