@@ -28,7 +28,7 @@ export async function getPublicProfile(username: string) {
                 playedOn: 'desc' 
             },
         },
-        lists: {
+        customLists: {
             where: { isPrivate: false },
             orderBy: { createdAt: 'desc' },
             include: {
