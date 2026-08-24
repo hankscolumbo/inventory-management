@@ -128,6 +128,7 @@ async function getGameDetails(gameId: string, isSteamAppExplicit: boolean) {
               genres: Array.isArray(game.genres)
                 ? game.genres.map((g: { name: string }) => g.name)
                 : [],
+              platforms: Array.isArray(game.platforms) ? game.platforms.map((p: { name: string }) => p.name) : [],
             };
           }
         }
@@ -166,6 +167,7 @@ async function getGameDetails(gameId: string, isSteamAppExplicit: boolean) {
               genres: Array.isArray(game.genres)
                 ? game.genres.map((g: { name: string }) => g.name)
                 : [],
+              platforms: Array.isArray(game.platforms) ? game.platforms.map((p: { name: string }) => p.name) : [],
             };
           }
         }
@@ -235,7 +237,7 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
   const session = await auth();
   let existingLog = null;
 
-  let userLists: { id: string; title: string }[] =[];
+  let userLists: { id: string; title: string }[] = [];
 
   if (session?.user) {
     const user = await prisma.user.findFirst({
@@ -330,12 +332,11 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
             {/* Release Date Badge */}
             {game.releaseDate && (
               <div
-                className={`flex items-center gap-1.5 text-xs font-mono font-bold px-3 py-1 rounded-lg shrink-0 border ${
-                  game.isUpcoming
-                    ? 'bg-emerald-950/60 border-emerald-800/80 text-emerald-400'
-                    : 'bg-purple-950/40 border-purple-800/40 text-purple-400'
-                }`}
-                >
+                className={`flex items-center gap-1.5 text-xs font-mono font-bold px-3 py-1 rounded-lg shrink-0 border ${game.isUpcoming
+                  ? 'bg-emerald-950/60 border-emerald-800/80 text-emerald-400'
+                  : 'bg-purple-950/40 border-purple-800/40 text-purple-400'
+                  }`}
+              >
                 {/*<svg className="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>*/}
@@ -343,6 +344,27 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
                 <span>{game.releaseDate}</span>
               </div>
             )}
+          </div>
+
+          {/* Available Platforms Row */}
+          <div className="space-y-1.5">
+            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+              Available Platforms
+            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {Array.isArray(game.platforms) && game.platforms.length > 0 ? (
+                game.platforms.map((platform: string) => (
+                  <span
+                    key={platform}
+                    className="px-2.5 py-1 bg-slate-950 border border-slate-800 text-slate-300 font-medium text-xs rounded-lg"
+                  >
+                    {platform}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-slate-500 italic">No platforms listed</span>
+              )}
+            </div>
           </div>
 
           {/* Community Stats Bar */}
@@ -401,13 +423,13 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
           initialLog={
             existingLog
               ? {
-                  status: existingLog.status as any,
-                  rating: existingLog.rating,
-                  playtimeHours: existingLog.playtimeHours,
-                  platforms: existingLog.platforms || [],
-                  isOwned: existingLog.isOwned,
-                  review: (existingLog as any).review || '',
-                }
+                status: existingLog.status as any,
+                rating: existingLog.rating,
+                playtimeHours: existingLog.playtimeHours,
+                platforms: existingLog.platforms || [],
+                isOwned: existingLog.isOwned,
+                review: (existingLog as any).review || '',
+              }
               : undefined
           }
         />
@@ -416,13 +438,13 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
       <div className="flex items-center justify-end gap-3">
         {session?.user && userLists.length > 0 && (
           <AddToListModal
-          game={{
-            name: game.name,
-            coverUrl: game.coverUrl,
-            igdbId: game.igdbId,
-            steamAppId: game.steamAppId,
-          }}
-          userLists={userLists}
+            game={{
+              name: game.name,
+              coverUrl: game.coverUrl,
+              igdbId: game.igdbId,
+              steamAppId: game.steamAppId,
+            }}
+            userLists={userLists}
           />
         )}
       </div>
