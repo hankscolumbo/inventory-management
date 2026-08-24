@@ -18,10 +18,11 @@ interface AddToListModalProps {
     igdbId?: number | null;
     steamAppId?: number | null;
   };
-  userLists: CustomListOption[];
+  userLists: { id: string; title: string }[];
+  customTrigger?: React.ReactNode;
 }
 
-export default function AddToListModal({ game, userLists }: AddToListModalProps) {
+export default function AddToListModal({ game, userLists, customTrigger }: AddToListModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [selectedListId, setSelectedListId] = useState<string>(userLists[0]?.id || '');
@@ -173,6 +174,18 @@ export default function AddToListModal({ game, userLists }: AddToListModalProps)
 
   return (
     <>
+    {customTrigger ? (
+        <div
+        onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsOpen(true);
+        }}
+        className="inline-block cursor-pointer"
+        >
+            {customTrigger}
+        </div>
+    ) : (
       <button
         type="button"
         onClick={() => setIsOpen(true)}
@@ -180,7 +193,8 @@ export default function AddToListModal({ game, userLists }: AddToListModalProps)
       >
         <span>📋</span> Add to List
       </button>
-
+    )}
+    
       {mounted && modalContent && createPortal(modalContent, document.body)}
     </>
   );

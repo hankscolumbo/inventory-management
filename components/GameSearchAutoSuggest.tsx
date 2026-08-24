@@ -4,6 +4,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 import Link from 'next/link';
+import { getActiveUserLists } from '@/app/actions/getUserLists';
+import LogGameButton from '@/components/LogGameButton';
+import AddToListModal from '@/components/AddToListModal';
 
 interface SearchResult {
   id: number;
@@ -17,9 +20,15 @@ export default function GameSearchAutoSuggest() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  
+  const [userLists, setUserLists] = useState<{ id: string; title: string }[]>([]);
+
   const debouncedQuery = useDebounce(query, 300);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Fetch active user lists for the modal
+  useEffect(() => {
+    getActiveUserLists().then((lists) => setUserLists(lists));
+  }, []);
 
   // Fetch results when debounced query updates
   useEffect(() => {
@@ -71,7 +80,7 @@ export default function GameSearchAutoSuggest() {
           placeholder="Search games (e.g. Elden Ring, Zelda)..."
           className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 pl-11 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 shadow-xl transition"
         />
-        
+
         {/* Search Icon */}
         <div className="absolute left-3.5 top-3.5 text-slate-500">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -96,35 +105,77 @@ export default function GameSearchAutoSuggest() {
             </div>
           ) : (
             results.map((game) => (
-              <Link
+              <div
                 key={game.id}
-                href={`/game/${game.id}`}
-                onClick={() => setIsOpen(false)}
-                className="flex items-center gap-3 p-3 hover:bg-slate-800/60 transition group"
+                className="flex items-center justify-between p-3 hover:bg-slate-800/60 transition group"
               >
-                {/* Cover Thumbnail */}
-                {game.coverUrl ? (
-                  <img
-                    src={game.coverUrl.startsWith('//') ? `https:${game.coverUrl}` : game.coverUrl}
-                    alt={game.name}
-                    className="w-10 h-14 object-cover rounded border border-slate-700 shrink-0"
-                  />
-                ) : (
-                  <div className="w-10 h-14 bg-slate-800 rounded flex items-center justify-center text-[10px] text-slate-500 shrink-0">
-                    No Cover
-                  </div>
-                )}
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-sm font-semibold text-slate-200 group-hover:text-purple-400 truncate transition">
-                    {game.name}
-                  </h4>
-                  {game.releaseYear && (
-                    <p className="text-xs text-slate-500 mt-0.5">{game.releaseYear}</p>
+                <Link
+                  href={`/game/${game.id}`}
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-3 flex-1 min-w-0"
+                >
+                  {game.coverUrl ? (
+                    <img
+                      src={game.coverUrl.startsWith('//') ? `https:${game.coverUrl}` : game.coverUrl}
+                      alt={game.name}
+                      className="w-10 h-14 object-cover rounded border border-slate-700 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-14 bg-slate-800 rounded flex items-center justify-center text-[10px] text-slate-500 shrink-0">
+                      No Cover
+                    </div>
                   )}
+
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-semibold text-slate-200 group-hover:text-purple-400 truncate transition">
+                      {game.name}
+                    </h4>
+                    {game.releaseYear && (
+                      <p className="text-xs text-slate-500 mt-0.5">{game.releaseYear}</p>
+                    )}
+                  </div>
+                </Link>
+
+                {/* Quick Action Buttons */}
+                <div className="flex items-center gap-1.5 ml-3 opacity-90 sm:opacity-0 group-hover:opacity-100 transition shrink-0">
+                  {userLists.length > 0 && (
+                    <AddToListModal
+                      game={{
+                        name: game.name,
+                        coverUrl: game.coverUrl,
+                        igdbId: game.id,
+                      }}
+                      userLists={userLists}
+                      customTrigger={
+                        <button
+                          type="button"
+                          title="Add to List"
+                          className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition text-xs"
+                        >
+                          📋
+                        </button>
+                      }
+                    />
+                  )}
+
+                  <LogGameButton
+                    game={{
+                      id: game.id,
+                      name: game.name,
+                      coverUrl: game.coverUrl,
+                    }}
+                    customTrigger={
+                      <button
+                        type="button"
+                        title="Log Game"
+                        className="p-1.5 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 rounded-lg transition text-xs"
+                      >
+                        ➕
+                      </button>
+                    }
+                  />
                 </div>
-              </Link>
+              </div>
             ))
           )}
         </div>
