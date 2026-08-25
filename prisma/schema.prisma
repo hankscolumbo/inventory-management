@@ -18,6 +18,7 @@ model User {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   steamId         String? @unique // store the user's linked Steam ID
+  hashedPassword  String?
   
   accounts        Account[]
   sessions        Session[]
