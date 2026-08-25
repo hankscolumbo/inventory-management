@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import AddGamesToListModal from '@/components/AddGamesToListModal';
 import CustomListItemsManager from '@/components/CustomListItemsManager';
+import EditListModal from '@/components/EditListModal';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -19,7 +20,7 @@ export default async function ListDetailsPage({ params }: PageProps) {
     include: {
       user: { select: { id: true, username: true, name: true, image: true, email: true } },
       items: {
-        orderBy: { position: 'asc' }, // ✅ Order entries by position
+        orderBy: { position: 'asc' },
       },
     },
   });
@@ -58,7 +59,19 @@ export default async function ListDetailsPage({ params }: PageProps) {
             </p>
           </div>
 
-          {isOwner && <AddGamesToListModal customListId={list.id} />}
+          {/* Owner Actions */}
+          {isOwner && (
+            <div className="flex items-center gap-2 shrink-0">
+              <EditListModal
+                list={{
+                  id: list.id,
+                  title: list.title,
+                  description: list.description,
+                }}
+              />
+              <AddGamesToListModal customListId={list.id} />
+            </div>
+          )}
         </div>
       </div>
 
