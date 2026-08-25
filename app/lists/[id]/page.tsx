@@ -67,6 +67,7 @@ export default async function ListDetailsPage({ params }: PageProps) {
                   id: list.id,
                   title: list.title,
                   description: list.description,
+                  username: list.user?.username,
                 }}
               />
               <AddGamesToListModal customListId={list.id} />

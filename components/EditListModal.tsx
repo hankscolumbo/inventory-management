@@ -11,6 +11,7 @@ interface EditListModalProps {
     id: string;
     title: string;
     description?: string | null;
+    username?: string | null;
   };
 }
 
@@ -59,7 +60,7 @@ export default function EditListModal({ list }: EditListModalProps) {
 
     if (res.success) {
       setIsOpen(false);
-      router.push('/lists');
+      router.push(list.username ? `/u/${list.username}` : 'lists');
       router.refresh();
     } else {
       setFeedback({ type: 'error', message: res.error || 'Failed to delete list.' });
