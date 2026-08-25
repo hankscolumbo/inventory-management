@@ -30,6 +30,12 @@ export async function addGameToList(input: AddGameInput) {
       return { success: false, error: 'Unauthorized.' };
     }
 
+    const maxPos = await prisma.customListItem.aggregate({
+        where: {customListId: input.customListId },
+        _max: { position: true },
+    });
+    const nextPosition = (maxPos._max.position ?? 0) + 1;
+
     await prisma.customListItem.create({
       data: {
         customListId: input.customListId,
@@ -38,11 +44,14 @@ export async function addGameToList(input: AddGameInput) {
         igdbId: input.igdbId,
         steamAppId: input.steamAppId,
         note: input.note || null,
-        position: list._count.items, // Append to bottom
+        position: nextPosition, // Append to bottom
       },
     });
 
     revalidatePath(`/lists/${input.customListId}`);
+    revalidatePath(`/list/${input.customListId}`);
+    revalidatePath(`/lists/`);
+
     return { success: true };
   } catch (error) {
     console.error('Error adding game to list:', error);

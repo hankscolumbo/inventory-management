@@ -5,10 +5,12 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { addGameToList } from '@/app/actions/manageListItems';
+import { createList } from '@/app/actions/createList';
 
 interface CustomListOption {
   id: string;
-  title: string;
+  title?: string;
+  name?: string;
 }
 
 interface AddToListModalProps {
@@ -25,7 +27,12 @@ interface AddToListModalProps {
 export default function AddToListModal({ game, userLists, customTrigger }: AddToListModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  const [localUserLists, setLocalUserLists] = useState<CustomListOption[]>(userLists);
   const [selectedListId, setSelectedListId] = useState<string>(userLists[0]?.id || '');
+  const [isCreatingNewList, setIsCreatingNewList] = useState(false);
+  const [newListTitle, setNewListTitle] = useState('');
+
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -37,39 +44,105 @@ export default function AddToListModal({ game, userLists, customTrigger }: AddTo
   }, []);
 
   useEffect(() => {
-    if (userLists.length > 0 && !selectedListId) {
-      setSelectedListId(userLists[0]?.id || '');
+    setLocalUserLists(userLists);
+    if (userLists.length > 0) {
+        if (!selectedListId) setSelectedListId(userLists[0]?.id || '');
+    } else {
+        // Default to create mode if user has no lists
+        setIsCreatingNewList(true);
     }
-  }, [userLists, selectedListId]);
+  }, [userLists]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+ const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!selectedListId) return;
-
     setLoading(true);
     setFeedback(null);
 
-    const res = await addGameToList({
-      customListId: selectedListId,
-      gameTitle: game.name,
-      coverUrl: game.coverUrl,
-      igdbId: game.igdbId,
-      steamAppId: game.steamAppId,
-      note: note.trim() || undefined,
-    });
+    let targetListId: string | null = null;
 
-    setLoading(false);
+    // 1. Handle Inline List Creation
+    if (isCreatingNewList) {
+      const trimmedTitle = newListTitle.trim();
+      if (!trimmedTitle) {
+        setFeedback({ type: 'error', message: 'Please enter a title for the new list.' });
+        setLoading(false);
+        return;
+      }
 
-    if (res.success) {
-      setFeedback({ type: 'success', message: 'Added to list successfully!' });
-      setTimeout(() => {
-        setIsOpen(false);
-        setFeedback(null);
-        setNote('');
-        router.refresh();
-      }, 1000);
+      // Support both object { title } and string arguments for createList
+      let createRes: any;
+      try {
+        createRes = await createList({ title: trimmedTitle });
+      } catch {
+        createRes = await createList(trimmedTitle as any);
+      }
+
+      // Extract new list ID across all possible server response shapes
+      const createdId =
+        createRes?.listId ||
+        createRes?.id ||
+        createRes?.list?.id ||
+        createRes?.data?.id ||
+        createRes?.customList?.id;
+
+      if ((createRes && 'success' in createRes && !createRes.success) || !createdId) {
+        setFeedback({
+          type: 'error',
+          message: createRes?.error || 'Failed to retrieve ID for new list.',
+        });
+        setLoading(false);
+        return;
+      }
+
+      targetListId = createdId;
+      setSelectedListId(createdId);
+      setLocalUserLists((prev) => [
+        ...prev,
+        { id: createdId, title: trimmedTitle },
+      ]);
     } else {
-      setFeedback({ type: 'error', message: res.error || 'Failed to add to list.' });
+      targetListId = selectedListId;
+    }
+
+    if (!targetListId) {
+      setFeedback({ type: 'error', message: 'Please select or create a list.' });
+      setLoading(false);
+      return;
+    }
+
+    // 2. Add Game to verified target list ID
+    try {
+      const res = await addGameToList({
+        customListId: targetListId,
+        gameTitle: game.name,
+        coverUrl: game.coverUrl,
+        igdbId: game.igdbId ? Number(game.igdbId) : null,
+        steamAppId: game.steamAppId ? Number(game.steamAppId) : null,
+        note: note.trim() || undefined,
+      });
+
+      setLoading(false);
+
+      if (res?.success) {
+        setFeedback({ type: 'success', message: 'Added to list successfully!' });
+        setTimeout(() => {
+          setIsOpen(false);
+          setFeedback(null);
+          setNote('');
+          setNewListTitle('');
+          setIsCreatingNewList(false);
+          router.refresh();
+        }, 1000);
+      } else {
+        setFeedback({
+          type: 'error',
+          message: res?.error || 'Failed to add game to list.',
+        });
+      }
+    } catch (err) {
+      console.error('Error adding game to list:', err);
+      setLoading(false);
+      setFeedback({ type: 'error', message: 'An unexpected error occurred.' });
     }
   };
 
@@ -102,37 +175,50 @@ export default function AddToListModal({ game, userLists, customTrigger }: AddTo
           </div>
         )}
 
-        {userLists.length === 0 ? (
-          <div className="text-center py-6 space-y-3">
-            <p className="text-xs text-slate-400">
-              You haven't created any custom lists yet.
-            </p>
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              className="text-xs font-bold text-purple-400 hover:underline"
-            >
-              Close
-            </button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* List Selection */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Target List Field (Select or Create Input) */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Select Target List
-              </label>
-              <select
-                value={selectedListId}
-                onChange={(e) => setSelectedListId(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 text-white text-xs px-3 py-2.5 rounded-xl focus:outline-none focus:border-purple-500"
-              >
-                {userLists.map((list) => (
-                  <option key={list.id} value={list.id}>
-                    {list.title}
-                  </option>
-                ))}
-              </select>
+                <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-300">
+                        {isCreatingNewList ? 'New List Title' : 'Select Target List'}
+                    </label>
+
+                    {localUserLists.length > 0 && (
+                        <button
+                        type="button"
+                        onClick={() => {
+                            setIsCreatingNewList(!isCreatingNewList);
+                            setFeedback(null);
+                        }}
+                        className="text-[11px] font-bold text-purple-400 hover:underline"
+                        >
+                        {isCreatingNewList ? '← Select existing list' : '+ Create new list'}
+                        </button>
+                    )}
+                </div>
+
+                {isCreatingNewList ? (
+                    <input
+                        type="text"
+                        value={newListTitle}
+                        onChange={(e) => setNewListTitle(e.target.value)}
+                        placeholder="e.g. My Favorite RPGs of All Time"
+                        autoFocus
+                        className="w-full bg-slate-950 border border-slate-800 text-white text-xs px-3 py-2.5 rounded-xl focus:outline-none focus:border-purple-500"
+                        />
+                ) : (
+                    <select
+                        value={selectedListId}
+                        onChange={(e) => setSelectedListId(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 text-white text-xs px-3 py-2.5 rounded-xl focus:outline-none focus:border-purple-500"
+                        >
+                            {localUserLists.map((list) => (
+                                <option key={list.id} value={list.id}>
+                                    { list.title || list.name || 'Untitled List' }
+                                </option>
+                            ))}
+                        </select>
+                )}
             </div>
 
             {/* Note Input */}
@@ -160,14 +246,17 @@ export default function AddToListModal({ game, userLists, customTrigger }: AddTo
               </button>
               <button
                 type="submit"
-                disabled={loading || !selectedListId}
+                disabled={loading || (!isCreatingNewList && !selectedListId)}
                 className="px-5 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-md transition"
               >
-                {loading ? 'Adding...' : 'Add to List'}
+                {loading
+                 ? 'Processing...'
+                : isCreatingNewList
+                ? 'Create & Add'
+                : 'Add to List'}
               </button>
             </div>
           </form>
-        )}
       </div>
     </div>
   ) : null;
@@ -194,7 +283,7 @@ export default function AddToListModal({ game, userLists, customTrigger }: AddTo
         <span>📋</span> Add to List
       </button>
     )}
-    
+
       {mounted && modalContent && createPortal(modalContent, document.body)}
     </>
   );
