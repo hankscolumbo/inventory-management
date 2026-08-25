@@ -159,7 +159,7 @@ export default function CreateListModal({ onSuccess }: CreateListModalProps) {
         onClick={() => setIsOpen(true)}
         className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2"
       >
-        <span className="text-base leading-none">+</span> Create Custom List
+        <span className="text-base leading-none">+</span>New List
       </button>
 
       {/* Render via Portal outside parent clipping context */}

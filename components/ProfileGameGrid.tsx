@@ -104,16 +104,16 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
                         <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
-                        Owned Games Only
+                        Owned
                     </button>
 
                     {/* Search Input */}
                     <input
                         type="text"
-                        placeholder="Search collection..."
+                        placeholder="Search..."
                         value={search}
                         onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                        className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 w-full sm:w-48"
+                        className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 w-full sm:w-24"
                     />
 
                     <select
@@ -135,7 +135,7 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
                     No games found matching your filters.
                 </div>
             ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                     {paginatedLogs.map((log) => {
                         const href = getGameLogHref(log);
 

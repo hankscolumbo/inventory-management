@@ -31,7 +31,7 @@ export default function UserListsGrid({ lists, isOwner }: UserListsGridProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-1 gap-4">
       {lists.map((list) => {
         const itemQuantity = list._count?.items ?? list._count?.listItems ?? 0;
 

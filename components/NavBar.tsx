@@ -2,7 +2,7 @@
 import { auth } from '@/lib/auth';
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
-import CreateListModal from './CreateListModal';
+import GameSearch from './GameSearch';
 
 export default async function Navbar() {
     const session = await auth();
@@ -22,38 +22,50 @@ export default async function Navbar() {
 
     return (
         <nav className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-950/80 backdrop-blur-md">
-            <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-                <Link
-                    href="/"
-                    className="font-extrabold text-white text-lg tracking-tight hover:text-purple-400 transition"
-                >
-                    Inventory Management
-                </Link>
+            <div className="max-w-6xl mx-auto px-4 h-16 grid grid-cols-3 items-center">
+                {/* Left: Brand Title */}
+                <div className="flex items-center justify-start">
+                    <Link
+                        href="/"
+                        className="font-extrabold text-white text-base sm:text-lg tracking-tight hover:text-purple-400 transition truncate"
+                    >
+                        playLog
+                    </Link>
+                </div>
 
-                <div className="flex items-center gap-4 text-xs font-semibold">
-                    <CreateListModal />
+                {/* Center: Centered & Scaled GameSearch */}
+                <div className="flex items-center justify-center w-full">
+                    <div className="w-full max-w-xs sm:max-w-sm relative [&_input]:h-8 [&_input]:py-1 [&_input]:text-xs [&_svg]:top-1/2 [&_svg]:-translate-y-1/2">
+                        <GameSearch />
+                    </div>
+                </div>
+
+                {/* Right: Profile / Auth State */}
+                <div className="flex items-center justify-end gap-4 text-xs font-semibold">
                     {session ? (
                         /* Logged In State: Direct to /u/[username] */
                         <Link
                             href={profileHref}
-                            className="flex items-center gap-2 text-slate-200 hover:text-purple transition"
+                            className="flex items-center gap-2 text-slate-200 hover:text-purple-400 transition"
                         >
                             {session.user?.image && (
                                 <img
                                     src={session.user.image}
                                     alt="Avatar"
-                                    className="w-6 h-6 rounded-full border-purple-500/50"
+                                    className="w-6 h-6 rounded-full border border-purple-500/50 object-cover"
                                 />
                             )}
-                            <span>{username ? `${username}` : (session.user?.name || 'Profile')}</span>
+                            <span className="hidden sm:inline">
+                                {username ? `${username}` : (session.user?.name || 'Profile')}
+                            </span>
                         </Link>
                     ) : (
                         /* Logged Out State: Show Sign In Link */
                         <Link
                             href="/api/auth/signin"
-                            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition"
+                            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition whitespace-nowrap"
                         >
-                            Sign In With Twitch
+                            Sign In
                         </Link>
                     )}
                 </div>
