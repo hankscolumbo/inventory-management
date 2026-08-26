@@ -38,7 +38,7 @@ export default function UserListsGrid({ lists, isOwner }: UserListsGridProps) {
         return (
           <Link
             key={list.id}
-            href={`/lists/${list.id}`}
+            href={`/list/${list.id}`}
             className="group bg-slate-900 border border-slate-800 rounded-2xl p-5 hover:border-purple-500 transition shadow-md flex flex-col justify-between space-y-4"
           >
             <div className="space-y-2">

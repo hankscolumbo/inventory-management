@@ -48,9 +48,9 @@ export async function addGameToList(input: AddGameInput) {
       },
     });
 
-    revalidatePath(`/lists/${input.customListId}`);
+    //revalidatePath(`/lists/${input.customListId}`);
     revalidatePath(`/list/${input.customListId}`);
-    revalidatePath(`/lists/`);
+    //revalidatePath(`/lists/`);
 
     return { success: true };
   } catch (error) {
@@ -69,7 +69,7 @@ export async function updateListItemNote(customListId: string, itemId: string, n
       data: { note },
     });
 
-    revalidatePath(`/lists/${customListId}`);
+    revalidatePath(`/list/${customListId}`);
     return { success: true };
   } catch (error) {
     return { success: false, error: 'Failed to update note.' };
@@ -90,7 +90,7 @@ export async function updateItemPositions(customListId: string, itemOrders: { id
       )
     );
 
-    revalidatePath(`/lists/${customListId}`);
+    revalidatePath(`/list/${customListId}`);
     return { success: true };
   } catch (error) {
     console.error('Error reordering items:', error);
@@ -104,7 +104,7 @@ export async function removeGameFromList(customListId: string, itemId: string) {
     if (!session?.user?.id && !session?.user?.email) return { success: false, error: 'Unauthenticated.' };
 
     await prisma.customListItem.delete({ where: { id: itemId } });
-    revalidatePath(`/lists/${customListId}`);
+    revalidatePath(`/list/${customListId}`);
     return { success: true };
   } catch (error) {
     return { success: false, error: 'Failed to remove game.' };

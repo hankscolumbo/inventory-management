@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import ListProgressSummary from '@/components/ListProgressSummary';
 import GameCardActions from '@/components/GameCardActions';
+import FollowListButton from '@/components/FollowListButton';
 
 interface Props {
     params: Promise<{ id: string }>;
@@ -15,14 +16,14 @@ export default async function ListPage({ params }: Props) {
     const session = await auth();
 
     // 1. Fetch List Items and User Logs in Parallel
-    const [list, userLogs, userLists] = await Promise.all([
+    const [list, userLogs, userLists, isFollowingRecord] = await Promise.all([
         prisma.customList.findUnique({
             where: { id },
             include: {
                 items: {
                     orderBy: { position: 'asc' },
                 },
-                user: { select: { username: true, name: true } },
+                user: { select: { username: true, name: true, email: true } },
             },
         }),
         session?.user?.email
@@ -47,6 +48,14 @@ export default async function ListPage({ params }: Props) {
                 select: { id: true, title: true },
             })
             : Promise.resolve([]),
+        session?.user?.email
+            ? prisma.listFollow.findFirst({
+                where: {
+                    customListId: id,
+                    user: {email: session.user.email },
+                },
+            })
+            : Promise.resolve(null),
     ]);
 
     if (!list) notFound();
@@ -71,6 +80,9 @@ export default async function ListPage({ params }: Props) {
         if (item.steamAppId !== null && playedSteamAppIds.has(item.steamAppId)) return true;
         return playedTitles.has(item.gameTitle.trim().toLowerCase());
     };
+
+    const isOwner = session?.user?.email ? list?.user?.email === session.user.email : false;
+    const isFollowing = Boolean(isFollowingRecord);
 
     // 3. Compute Progress Metrics
     const totalCount = list.items.length;
@@ -116,12 +128,22 @@ export default async function ListPage({ params }: Props) {
                             </p>
                         )}
                     </div>
+                    <div>
+                    <span className="text-xs text-slate-300 leading-relaxed mb-4">Curated by </span>
                     <Link
                         href={authorProfileHref}
                         className="text-xs font-semibold text-purple-400 hover:text-purple-300 hover:underline transition w-fit"
                     >
-                        Curated by @{authorName}
+                        @{authorName}
                     </Link>
+                    </div>
+                    {session && (
+                        <FollowListButton
+                            customListId={list.id}
+                            initialIsFollowing={isFollowing}
+                            isOwner={isOwner}
+                            />
+                    )}
                 </div>
 
             </div>

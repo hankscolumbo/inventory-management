@@ -69,7 +69,7 @@ export default function CommunitySearchBar() {
               {results.lists.map((list) => (
                 <Link
                   key={list.id}
-                  href={`/lists/${list.id}`}
+                  href={`/list/${list.id}`}
                   onClick={() => setIsOpen(false)}
                   className="block px-2 py-2 hover:bg-slate-800 rounded-lg transition"
                 >

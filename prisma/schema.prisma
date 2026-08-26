@@ -25,6 +25,7 @@ model User {
   sessions        Session[]
   gameLogs        GameLog[]
   customLists     CustomList[]
+  followedLists   ListFollow[]
 }
 
 model Account {
@@ -99,6 +100,7 @@ model CustomList {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   items       CustomListItem[]
+  followers   ListFollow[]
 }
 
 model CustomListItem {
@@ -113,4 +115,14 @@ model CustomListItem {
   note          String?
   position      Int         @default(0)
   addedAt       DateTime    @default(now())
+}
+
+model ListFollow {
+  id              String      @id @default(cuid())
+  userId          String
+  customListId    String
+  createdAt       DateTime    @default(now())
+
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customList      CustomList  @relation(fields: [customListId], references: [id], onDelete: Cascade)
 }

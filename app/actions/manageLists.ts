@@ -28,9 +28,9 @@ export async function updateList(listId: string, data: { title: string; descript
       },
     });
 
-    revalidatePath(`/lists/${listId}`);
+    //revalidatePath(`/lists/${listId}`);
     revalidatePath(`/list/${listId}`);
-    revalidatePath('/lists');
+    //revalidatePath('/lists');
     return { success: true };
   } catch (error) {
     console.error('Error updating list:', error);

@@ -53,7 +53,7 @@ export default function CreateListModal({ onSuccess }: CreateListModalProps) {
       setLoading(false);
 
       if (res.listId) {
-        router.push(`/lists/${res.listId}`);
+        router.push(`/list/${res.listId}`);
         router.refresh();
       }
     } catch (err) {
