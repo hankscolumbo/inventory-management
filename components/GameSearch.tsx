@@ -104,7 +104,7 @@ export default function GameSearch() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => query.trim() && results.length > 0 && setIsDropdownOpen(true)}
-            placeholder="Search games (press Enter for full results)..."
+            placeholder="Search games..."
             className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 pl-11 pr-20 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 shadow-xl transition"
           />
 

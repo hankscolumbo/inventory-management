@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import GameSearch from './GameSearch';
+import CommunitySearchBar from './CommunitySearchBar';
 
 export default async function Navbar() {
     const session = await auth();
@@ -22,8 +23,8 @@ export default async function Navbar() {
 
     return (
         <nav className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-950/80 backdrop-blur-md">
-            <div className="max-w-6xl mx-auto px-4 h-16 grid grid-cols-3 items-center">
-                {/* Left: Brand Title */}
+            <div className="max-w-7xl mx-auto px-4 h-16 grid grid-cols-5 items-center">
+                {/* Column 1: Brand Title */}
                 <div className="flex items-center justify-start">
                     <Link
                         href="/"
@@ -33,10 +34,20 @@ export default async function Navbar() {
                     </Link>
                 </div>
 
-                {/* Center: Centered & Scaled GameSearch */}
+                {/* Column 2: GameSearch */}
                 <div className="flex items-center justify-center w-full">
                     <div className="w-full max-w-xs sm:max-w-sm relative [&_input]:h-8 [&_input]:py-1 [&_input]:text-xs [&_svg]:top-1/2 [&_svg]:-translate-y-1/2">
                         <GameSearch />
+                    </div>
+                </div>
+
+                {/* Column 3: Empty */}
+                <div></div>
+
+                {/* Column 4: Community Search Bar */}
+                <div className="flex items-center justify-center w-full">
+                    <div className="w-full max-w-xs sm:max-w-sm relative [&_input]:h-8 [&_input]:py-1 [&_input]:text-xs [&_svg]:top-1/2 [&_svg]:-translate-y-1/2">
+                        <CommunitySearchBar />
                     </div>
                 </div>
 
