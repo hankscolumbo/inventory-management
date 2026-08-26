@@ -23,7 +23,7 @@ export async function POST(request: Request) {
       Authorization: `Bearer ${tokenData.access_token}`,
       'Content-Type': 'text/plain',
     },
-    body: `search "${query}"; fields name, cover.url, first_release_date; where game_type = (0, 4, 8, 9); limit 12;`,
+    body: `search "${query}"; fields name, cover.url, first_release_date; where game_type = (0, 4, 5, 8, 9); limit 12;`,
   });
 
   const games = await igdbRes.json(); // <-- THIS VARIABLE NAME

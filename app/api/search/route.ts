@@ -75,7 +75,7 @@ export async function GET(request: Request) {
     const numericLimit: number = limit ? parseInt(limit, 10) : 50;
     const fetchLimit = Math.min(numericLimit * 2, 100);
 
-    const bodyPayload = `search "${searchQuery}"; fields name, cover.url, first_release_date, hypes, follows, rating_count, version_parent.id, parent_game.id; where game_type = (0, 4, 8, 9); limit ${fetchLimit};`;
+    const bodyPayload = `search "${searchQuery}"; fields name, cover.url, first_release_date, hypes, follows, rating_count, version_parent.id, parent_game.id; where game_type = (0, 4, 5, 8, 9); limit ${fetchLimit};`;
 
     // 2. Query IGDB for games matching query
     const igdbRes = await fetch('https://api.igdb.com/v4/games', {
