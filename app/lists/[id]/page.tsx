@@ -1,83 +1,196 @@
-// app/lists/[id]/page.tsx
+// app/list/[id]/page.tsx
+import { auth } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { prisma } from '@/lib/prisma';
-import { auth } from '@/lib/auth';
-import AddGamesToListModal from '@/components/AddGamesToListModal';
-import CustomListItemsManager from '@/components/CustomListItemsManager';
-import EditListModal from '@/components/EditListModal';
+import ListProgressSummary from '@/components/ListProgressSummary';
+import GameCardActions from '@/components/GameCardActions';
 
-interface PageProps {
-  params: Promise<{ id: string }>;
+interface Props {
+    params: Promise<{ id: string }>;
 }
 
-export default async function ListDetailsPage({ params }: PageProps) {
-  const { id } = await params;
-  const session = await auth();
+export default async function ListPage({ params }: Props) {
+    const { id } = await params;
+    const session = await auth();
 
-  const list = await prisma.customList.findUnique({
-    where: { id },
-    include: {
-      user: { select: { id: true, username: true, name: true, image: true, email: true } },
-      items: {
-        orderBy: { position: 'asc' },
-      },
-    },
-  });
+    // 1. Fetch List Items and User Logs in Parallel
+    const [list, userLogs, userLists] = await Promise.all([
+        prisma.customList.findUnique({
+            where: { id },
+            include: {
+                items: {
+                    orderBy: { position: 'asc' },
+                },
+                user: { select: { username: true, name: true } },
+            },
+        }),
+        session?.user?.email
+            ? prisma.gameLog.findMany({
+                where: {
+                    user: { email: session.user.email },
+                    OR: [
+                        { status: { in: ['PLAYED', 'PLAYING'] } }, // filters which games to count towards the progress bar
+                        { playtimeHours: { gt: 0 } },
+                    ],
+                },
+                select: {
+                    igdbId: true,
+                    steamAppId: true,
+                    gameTitle: true,
+                },
+            })
+            : Promise.resolve([]),
+        session?.user?.email
+            ? prisma.customList.findMany({
+                where: { user: { email: session.user.email } },
+                select: { id: true, title: true },
+            })
+            : Promise.resolve([]),
+    ]);
 
-  if (!list) notFound();
+    if (!list) notFound();
 
-  const isOwner =
-    !!session?.user &&
-    (session.user.id === list.userId || session.user.email === list.user?.email);
+    // 2. Build Lookup Sets for Matching Played Status
+    const playedIgdbIds = new Set(
+        userLogs.map((log) => log.igdbId).filter((val): val is number => val !== null)
+    );
+    const playedSteamAppIds = new Set(
+        userLogs.map((log) => log.steamAppId).filter((val): val is number => val !== null)
+    );
+    const playedTitles = new Set(
+        userLogs.map((log) => log.gameTitle.trim().toLowerCase())
+    );
 
-  if (list.isPrivate && !isOwner) notFound();
+    const checkIfPlayed = (item: {
+        igdbId: number | null;
+        steamAppId: number | null;
+        gameTitle: string;
+    }) => {
+        if (item.igdbId !== null && playedIgdbIds.has(item.igdbId)) return true;
+        if (item.steamAppId !== null && playedSteamAppIds.has(item.steamAppId)) return true;
+        return playedTitles.has(item.gameTitle.trim().toLowerCase());
+    };
 
-  return (
-    <main className="max-w-4xl mx-auto px-6 py-10 space-y-8">
-      {/* Header */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-extrabold text-white">{list.title}</h1>
-              {list.isPrivate && (
-                <span className="text-[10px] uppercase font-bold px-2 py-0.5 bg-amber-950/80 border border-amber-800 text-amber-400 rounded-md">
-                  Private
-                </span>
-              )}
+    // 3. Compute Progress Metrics
+    const totalCount = list.items.length;
+    const playedCount = list.items.filter(checkIfPlayed).length;
+    const unplayedCount = totalCount - playedCount;
+    const percentage = totalCount > 0 ? Math.round((playedCount / totalCount) * 100) : 0;
+
+    const authorName = list.user.username || list.user.name || 'User';
+    const authorProfileHref = list.user.username ? `/u/${list.user.username}` : '#';
+
+    return (
+        <div className="max-w-6xl mx-auto py-8 px-4">
+            {/* Top Header Layout */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch mb-8">
+
+                {/* Left 2/3: Status Bar Progress Summary */}
+                <div className={session ? 'md:col-span-2' : 'md:col-span-3'}>
+                    {session ? (
+                        <div className="[&>div]:mb-0 h-full">
+                            <ListProgressSummary
+                                playedCount={playedCount}
+                                unplayedCount={unplayedCount}
+                                totalCount={totalCount}
+                                percentage={percentage}
+                            />
+                        </div>
+                    ) : (
+                        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex items-center justify-center text-slate-400 text-sm h-full">
+                            Sign in to track your progress on this list.
+                        </div>
+                    )}
+                </div>
+
+                {/* Right 1/3: Title, Description & Author Profile Link */}
+                <div className="md:col-span-1 bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-col justify-between">
+                    <div>
+                        <h1 className="text-2xl font-extrabold text-white mb-2 leading-tight">
+                            {list.title}
+                        </h1>
+                        {list.description && (
+                            <p className="text-xs text-slate-300 leading-relaxed mb-4">
+                                {list.description}
+                            </p>
+                        )}
+                    </div>
+                    <Link
+                        href={authorProfileHref}
+                        className="text-xs font-semibold text-purple-400 hover:text-purple-300 hover:underline transition w-fit"
+                    >
+                        Curated by @{authorName}
+                    </Link>
+                </div>
+
             </div>
-            {list.description && <p className="text-sm text-slate-400 mt-1">{list.description}</p>}
-            <p className="text-xs text-slate-500 mt-2">
-              Created by{' '}
-              <Link
-                href={`/u/${list.user.username}`}
-                className="text-purple-400 font-semibold hover:underline"
-              >
-                @{list.user.username || list.user.name}
-              </Link>
-            </p>
-          </div>
 
-          {/* Owner Actions */}
-          {isOwner && (
-            <div className="flex items-center gap-2 shrink-0">
-              <EditListModal
-                list={{
-                  id: list.id,
-                  title: list.title,
-                  description: list.description,
-                  username: list.user?.username,
-                }}
-              />
-              <AddGamesToListModal customListId={list.id} />
+            {/* Full Width Game Cards Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {list.items.map((item) => {
+                    const isPlayed = checkIfPlayed(item);
+
+                    return (
+                        <div
+                            key={item.id}
+                            className="relative bg-slate-900 border border-slate-800 rounded-xl overflow-hidden group flex flex-col justify-between"
+                        >
+                            {/* Status Badge */}
+                            {session && (
+                                <div className="absolute top-2 right-2 z-10">
+                                    {isPlayed ? (
+                                        <span className="px-2 py-0.5 bg-emerald-500/90 text-white text-[10px] font-bold rounded-full shadow backdrop-blur-sm">
+                                            ✓ Played
+                                        </span>
+                                    ) : (
+                                        <span className="px-2 py-0.5 bg-slate-950/80 text-slate-400 text-[10px] font-semibold rounded-full border border-slate-700/80 backdrop-blur-sm">
+                                            Unplayed
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Game Cover */}
+                            <Link
+                                href={
+                                    item.igdbId
+                                        ? `/game/${item.igdbId}`
+                                        : item.steamAppId
+                                            ? `/game/steam-${item.steamAppId}`
+                                            : `/game/${encodeURIComponent(item.gameTitle)}`
+                                }
+                                className="aspect-[3/4] bg-slate-950 relative block overflow-hidden group/cover"
+                            >
+                                <div className="aspect-[3/4] bg-slate-950 relative">
+                                    <img
+                                        src={item.coverUrl || '/placeholder.png'}
+                                        alt={item.gameTitle}
+                                        className={`w-full h-full object-cover transition ${isPlayed ? 'opacity-100' : 'opacity-75 group-hover:opacity-100'
+                                            }`}
+                                    /> 
+                                </div>
+                                </Link>
+
+                                {/* Game Info, Entry Notes & Action Buttons */}
+                                <div className="p-3 flex-1 flex flex-col justify-between space-y-2">
+                                    <div>
+                                        <h3 className="text-xs font-semibold text-white truncate">{item.gameTitle}</h3>
+
+                                        {item.note && (
+                                            <div className="bg-slate-950/80 border border-slate-800 p-2 rounded-lg text-[11px] text-slate-300 leading-tight italic mt-2">
+                                                "{item.note}"
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Card Interactive Actions */}
+                                    <GameCardActions item={item} userLists={userLists} />
+                                </div>
+                        </div>
+                    );
+                })}
             </div>
-          )}
         </div>
-      </div>
-
-      {/* Column View with DnD and Notes */}
-      <CustomListItemsManager customListId={list.id} initialItems={list.items} isOwner={isOwner} />
-    </main>
-  );
+    );
 }
