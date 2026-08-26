@@ -9,6 +9,7 @@ import SteamSyncModal from '@/components/SteamSyncModal';
 import CreateListModal from '@/components/CreateListModal';
 import UserListsGrid from '@/components/UserListsGrid';
 import ProfileGameGrid from '@/components/ProfileGameGrid';
+import EditableAvatar from '@/components/EditableAvatar';
 
 interface PageProps {
   params: Promise<{ username: string }>;
@@ -69,18 +70,11 @@ export default async function PublicProfilePage({ params }: PageProps) {
     <div className="max-w-7xl mx-auto px-6 py-10 space-y-8">
       {/* Profile Header Card */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-6 shadow-2xl relative overflow-hidden">
-        {/* User Avatar */}
-        {user.image ? (
-          <img
-            src={user.image}
-            alt={user.name || user.username || 'User Avatar'}
-            className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-2 border-purple-500/50 object-cover shadow-xl shrink-0"
-          />
-        ) : (
-          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center text-3xl font-extrabold text-purple-400 shrink-0 shadow-xl">
-            {(user.username || user.name || 'U')[0]?.toUpperCase()}
-          </div>
-        )}
+        <EditableAvatar
+            currentImage={user.image}
+            username={user.username || 'User'}
+            isOwner={isProfileOwner}
+            />
 
         {/* User Details */}
         <div className="text-center sm:text-left space-y-3 flex-1 min-w-0">

@@ -8,14 +8,16 @@ import CommunitySearchBar from './CommunitySearchBar';
 export default async function Navbar() {
     const session = await auth();
 
-    let username = null;
+    let username: string | undefined = undefined;
+    let avatarUrl: string | undefined = undefined;
 
     if (session?.user?.email) {
         const dbUser = await prisma.user.findUnique({
             where: { email: session.user.email },
-            select: { username: true },
+            select: { username: true, image: true },
         });
-        username = dbUser?.username;
+        username = dbUser?.username ?? undefined;
+        avatarUrl = dbUser?.image || session.user?.image || undefined;
     }
 
     // Fallback profile link if username isn't set yet
@@ -51,7 +53,7 @@ export default async function Navbar() {
                     </div>
                 </div>
 
-                {/* Right: Profile / Auth State */}
+                {/* Column 5: Profile / Auth State */}
                 <div className="flex items-center justify-end gap-4 text-xs font-semibold">
                     {session ? (
                         /* Logged In State: Direct to /u/[username] */
@@ -59,12 +61,16 @@ export default async function Navbar() {
                             href={profileHref}
                             className="flex items-center gap-2 text-slate-200 hover:text-purple-400 transition"
                         >
-                            {session.user?.image && (
+                            {avatarUrl ? (
                                 <img
-                                    src={session.user.image}
+                                    src={avatarUrl}
                                     alt="Avatar"
                                     className="w-6 h-6 rounded-full border border-purple-500/50 object-cover"
                                 />
+                            ) : (
+                                <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white uppercase">
+                                    {username ? `{$username}` : (session.user?.name || 'U')[0]}
+                                </div>
                             )}
                             <span className="hidden sm:inline">
                                 {username ? `${username}` : (session.user?.name || 'Profile')}
