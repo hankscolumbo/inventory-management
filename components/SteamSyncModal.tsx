@@ -3,9 +3,10 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { syncSteamGames } from '@/app/actions/syncSteam';
+import { syncSteamPlayedGames } from '@/app/actions/syncSteamPlayed';
 import { syncSteamWishlist } from '@/app/actions/syncSteamWishlist';
 import { updateSteamId } from '@/app/actions/updateSteamId';
+import { syncSteamBacklog } from '@/app/actions/syncSteamBacklog';
 
 interface SteamSyncModalProps {
   steamId?: string | null;
@@ -21,7 +22,7 @@ export default function SteamSyncModal({ steamId, isOwner }: SteamSyncModalProps
   const [isEditing, setIsEditing] = useState<boolean>(!steamId);
   const [savingId, setSavingId] = useState<boolean>(false);
 
-  const [loadingAction, setLoadingAction] = useState<'played' | 'wishlist' | null>(null);
+  const [loadingAction, setLoadingAction] = useState<'played' | 'wishlist' | 'backlog' | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
@@ -33,7 +34,7 @@ export default function SteamSyncModal({ steamId, isOwner }: SteamSyncModalProps
   const handleSyncPlayed = async () => {
     setLoadingAction('played');
     setFeedback(null);
-    const res = await syncSteamGames();
+    const res = await syncSteamPlayedGames();
     setLoadingAction(null);
 
     if (res.success) {
@@ -55,6 +56,19 @@ export default function SteamSyncModal({ steamId, isOwner }: SteamSyncModalProps
       setFeedback({ type: 'error', message: res.error || 'Failed to sync wishlist.' });
     }
   };
+
+  const handleSyncBacklog = async () => {
+      setLoadingAction('backlog');
+      setFeedback(null);
+      const res = await syncSteamBacklog();
+      setLoadingAction(null);
+  
+      if (res.success) {
+        setFeedback({ type: 'success', message: `Marked ${res.count ?? 0} games as backlog.` });
+      } else {
+        setFeedback({ type: 'error', message: res.error || 'Failed to sync backlog games.' });
+      }
+    };
 
   const isBusy = loadingAction !== null || savingId;
 
@@ -173,15 +187,15 @@ export default function SteamSyncModal({ steamId, isOwner }: SteamSyncModalProps
           </form>
         )}
 
-        {/* Sync Options Grid (Played & Wishlist Only) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Sync Options Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {/* Sync Played Games */}
           <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between space-y-3">
             <div>
               <span className="text-xs font-bold text-purple-400 uppercase tracking-wider block">Option 1</span>
               <h3 className="text-sm font-bold text-white mt-1">Sync Played Games</h3>
               <p className="text-xs text-slate-400 mt-1">
-                Imports played games with &gt;0 minutes playtime and sets status to <span className="text-slate-200">PLAYED</span>.
+                Imports games with 1+ minutes playtime and sets status to <span className="text-slate-200">PLAYED</span>.
               </p>
             </div>
             <button
@@ -212,6 +226,25 @@ export default function SteamSyncModal({ steamId, isOwner }: SteamSyncModalProps
               {loadingAction === 'wishlist' ? 'Syncing...' : 'Sync Wishlist'}
             </button>
           </div>
+
+          {/* Sync Backlog */}
+        <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between space-y-3">
+          <div>
+            <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider block">Option 3</span>
+            <h3 className="text-sm font-bold text-white mt-1">Sync Backlog</h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Check Steam library for unplayed games and adds them to your <span className="text-slate-200">BACKLOG</span>
+            </p>
+          </div>
+          <button
+            onClick={handleSyncBacklog}
+            disabled={isBusy || !currentSteamId}
+            className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white text-xs font-bold rounded-lg transition shadow disabled:cursor-not-allowed"
+          >
+            {loadingAction === 'backlog' ? 'Syncing...' : 'Sync Backlog'}
+          </button>
+        </div>
+
         </div>
       </div>
     </div>

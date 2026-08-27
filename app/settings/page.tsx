@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { syncSteamGames } from '@/app/actions/syncSteam';
+import { syncSteamGames } from '@/app/actions/syncSteamPlayed';
 import { saveSteamId } from '@/app/actions/saveSteamId';
 
 export default function SettingsPage() {

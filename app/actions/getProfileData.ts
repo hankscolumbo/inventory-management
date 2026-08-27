@@ -68,8 +68,9 @@ export async function getProfileData(userId?: string) {
                 totalLogged,
                 avgRating,
                 playingCount: logs.filter((l) => l.status === 'PLAYING').length,
-                backlogCount: logs.filter((l) => l.status === 'BACKLOG').length,
                 playedCount: logs.filter((l) => l.status === 'PLAYED').length,
+                wantToPlayCount: logs.filter((l) => l.status === 'WANT TO PLAY').length,
+                backlogCount: logs.filter((l) => l.status === 'BACKLOG').length,
             },
             logs,
         };

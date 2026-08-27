@@ -1,4 +1,4 @@
-// app/actions/syncSteam.ts
+// app/actions/syncSteamPlayed.ts
 'use server';
 
 import { auth } from '@/lib/auth';
@@ -110,7 +110,7 @@ async function getIgdbIdsForSteamApps(
     }
 }
 
-export async function syncSteamGames() {
+export async function syncSteamPlayedGames() {
     try {
         const session = await auth();
         const userId = session?.user?.id;
