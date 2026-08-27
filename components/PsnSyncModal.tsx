@@ -81,7 +81,7 @@ export default function PsnSyncModal({ psnNpsso, psnOnlineId, isOwner }: PsnSync
             How to get your NPSSO Code:
           </span>
           <ol className="list-decimal list-inside text-slate-300 space-y-1 leading-relaxed">
-            <li>Log into your account at <a href="https://ca.account.sony.com" target="_blank" rel="noreferrer" className="text-blue-400 underline">ca.account.sony.com</a></li>
+            <li>Log into your account at <a href="https://www.playstation.com/" target="_blank" rel="noreferrer" className="text-blue-400 underline">playstation.com</a></li>
             <li>In the same browser, visit <a href="https://ca.account.sony.com/api/v1/ssocookie" target="_blank" rel="noreferrer" className="text-blue-400 underline truncate inline-block max-w-[200px] align-bottom">ca.account.sony.com/api/v1/ssocookie</a></li>
             <li>Copy the 64-character <code className="bg-slate-900 px-1 py-0.5 rounded text-purple-300">npsso</code> value from the response.</li>
           </ol>
