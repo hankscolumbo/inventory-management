@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { syncSteamGames } from '@/app/actions/syncSteamPlayed';
+import { syncSteamPlayedGames } from '@/app/actions/syncSteamPlayed';
 import { saveSteamId } from '@/app/actions/saveSteamId';
 
 export default function SettingsPage() {
@@ -26,7 +26,7 @@ export default function SettingsPage() {
   const handleSyncGames = () => {
     setMessage(null);
     startTransition(async () => {
-      const res = await syncSteamGames();
+      const res = await syncSteamPlayedGames();
       if (res.success) {
         setMessage({ text: `Successfully synced ${res.count} games from your Steam library!`, isError: false });
       } else {
