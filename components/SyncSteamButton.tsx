@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { syncSteamGames } from '@/app/actions/syncSteamPlayed';
+import { syncSteamPlayedGames } from '@/app/actions/syncSteamPlayed';
 
 export default function SyncSteamButton() {
   const [isPending, startTransition] = useTransition();
@@ -11,7 +11,7 @@ export default function SyncSteamButton() {
   const handleSync = () => {
     setFeedback(null);
     startTransition(async () => {
-      const res = await syncSteamGames();
+      const res = await syncSteamPlayedGames();
       if (res.success) {
         setFeedback(`Synced ${res.count} games!`);
         setTimeout(() => setFeedback(null), 4000);

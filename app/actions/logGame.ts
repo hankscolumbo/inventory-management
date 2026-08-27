@@ -1,13 +1,8 @@
 'use server';
 
 import { auth } from '@/lib/auth';
-//import { PrismaPg } from '@prisma/adapter-pg';
-//import { PrismaClient } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-
-//const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
-//const prisma = new PrismaClient({ adapter })
 
 interface LogInput {
   gameId: number;

@@ -48,9 +48,7 @@ export async function addGameToList(input: AddGameInput) {
       },
     });
 
-    //revalidatePath(`/lists/${input.customListId}`);
     revalidatePath(`/list/${input.customListId}`);
-    //revalidatePath(`/lists/`);
 
     return { success: true };
   } catch (error) {
