@@ -10,15 +10,17 @@ generator client {
 }
 
 model User {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   name            String?
-  username        String?  @unique
-  email           String?  @unique
+  username        String?   @unique
+  email           String?   @unique
   emailVerified   DateTime?
   image           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  steamId         String? @unique // store the user's linked Steam ID
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  steamId         String?   @unique // store the user's linked Steam ID
+  psnOnlineId     String?   @unique
+  psnNpsso        String?   
   hashedPassword  String?
   
   accounts        Account[]
@@ -70,6 +72,7 @@ model GameLog {
 
   steamAppId      Int?                        // Steam AppID (from Steam API)
   igdbId          Int?                        // IGDB Game Id (from search or resolved during sync)
+  psnTitleId      String?
 
   gameTitle       String                      // cached title for easy display
   coverUrl        String?                     // Cached cover image coverUrl
@@ -86,6 +89,7 @@ model GameLog {
 
   @@unique([userId, steamAppId])
   @@unique([userId, igdbId])
+  @@unique([userId, psnTitleId])
 }
 
 model CustomList {

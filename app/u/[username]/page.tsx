@@ -13,6 +13,7 @@ import CreateListModal from '@/components/CreateListModal';
 import UserListsGrid from '@/components/UserListsGrid';
 import ProfileGameGrid from '@/components/ProfileGameGrid';
 import EditableAvatar from '@/components/EditableAvatar';
+import PsnSyncModal from '@/components/PsnSyncModal';
 
 
 interface PageProps {
@@ -115,6 +116,11 @@ export default async function PublicProfilePage({ params }: PageProps) {
             {isProfileOwner && (
               <div className="flex items-center gap-3 justify-center sm:justify-end">
                 <SteamSyncModal steamId={user.steamId} isOwner={isProfileOwner} />
+                <PsnSyncModal
+                    psnNpsso={user.psnNpsso}
+                    psnOnlineId={user.psnOnlineId}
+                    isOwner={isProfileOwner}
+                    />
                 <SignOutButton />
               </div>
             )}
