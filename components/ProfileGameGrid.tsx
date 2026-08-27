@@ -39,7 +39,7 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
     const [showOwnedOnly, setShowOwnedOnly] = useState(false);
     const [page, setPage] = useState(1);
     const [userLists, setUserLists] = useState<{ id: string; title: string }[]>([]);
-    const ITEMS_PER_PAGE = 24;
+    const ITEMS_PER_PAGE = 25;
 
     // ✅ Fetch active user custom lists on mount
     useEffect(() => {
@@ -197,9 +197,8 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
                                     </div>
                                 </Link>
 
-                                {/* ✅ Corrected: Quick Action Overlay Buttons inside the mapped card */}
+                                {/* Add to List & Log buttons */}
                                 <div className="p-2 border-t border-slate-800/80 bg-slate-950/90 flex items-center justify-end gap-1.5 z-20">
-                                    {userLists.length > 0 && (
                                         <AddToListModal
                                             game={{
                                                 name: log.gameTitle,
@@ -218,7 +217,6 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
                                                 </button>
                                             }
                                         />
-                                    )}
 
                                     <LogGameButton
                                         game={{
