@@ -104,15 +104,23 @@ async function fetchExternalGameIds(title: string): Promise<{ igdbId?: number; s
   return result;
 }
 
-function parseIsoDurationToHours(duration?: string): number {
+function parseIsoDurationToHours(duration?: string| number): number {
   if (!duration) return 0;
+
+  if (typeof duration === 'number') {
+    return Number((duration / 3600).toFixed(1));
+  }
+
+  const daysMatch = duration.match(/(\d+)D/);
   const hoursMatch = duration.match(/(\d+)H/);
   const minutesMatch = duration.match(/(\d+)M/);
 
+  const days = daysMatch && daysMatch[1] ? parseInt(daysMatch[1], 10) : 0;
   const hours = hoursMatch && hoursMatch[1] ? parseInt(hoursMatch[1], 10) : 0;
   const minutes = minutesMatch && minutesMatch[1] ? parseInt(minutesMatch[1], 10) : 0;
 
-  return Number((hours + minutes / 60).toFixed(1));
+  const totalHours = (days * 24) + hours + (minutes / 60);
+  return Number(totalHours.toFixed(1));
 }
 
 export async function syncPsnAccount(npssoToken: string) {
