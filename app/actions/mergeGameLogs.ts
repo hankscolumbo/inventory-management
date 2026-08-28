@@ -23,7 +23,6 @@ export async function mergeGameLogs(primaryLogId: string, secondaryLogId: string
 
     if (!user) return { success: false, error: 'User not found.' };
 
-    // Fetch both records ensuring they belong to the authenticated user
     const [primaryLog, secondaryLog] = await Promise.all([
       prisma.gameLog.findFirst({ where: { id: primaryLogId, userId: user.id } }),
       prisma.gameLog.findFirst({ where: { id: secondaryLogId, userId: user.id } }),
@@ -33,25 +32,23 @@ export async function mergeGameLogs(primaryLogId: string, secondaryLogId: string
       return { success: false, error: 'One or both game logs could not be found.' };
     }
 
-    // 1. Combine total playtime
+    // 1. Combine total playtime safely
     const primaryHours = primaryLog.playtimeHours ?? 0;
     const secondaryHours = secondaryLog.playtimeHours ?? 0;
-
     const mergedPlaytimeHours = Number((primaryHours + secondaryHours).toFixed(1));
-
 
     // 2. Merge platform arrays (deduplicated)
     const mergedPlatforms = Array.from(
       new Set([...primaryLog.platforms, ...secondaryLog.platforms])
     );
 
-    // 3. Resolve status (If either was marked PLAYED, keep PLAYED)
+    // 3. Resolve status
     const mergedStatus =
       primaryLog.status === 'PLAYED' || secondaryLog.status === 'PLAYED'
         ? 'PLAYED'
         : primaryLog.status;
 
-    // 4. Resolve playedOn date (preserve whichever date is most recent)
+    // 4. Resolve playedOn date
     let mergedPlayedOn = primaryLog.playedOn;
     if (secondaryLog.playedOn) {
       if (!mergedPlayedOn || new Date(secondaryLog.playedOn) > new Date(mergedPlayedOn)) {
@@ -59,8 +56,11 @@ export async function mergeGameLogs(primaryLogId: string, secondaryLogId: string
       }
     }
 
-    // 5. Execute update and deletion atomically inside a transaction
+    // 5. DELETE SECONDARY FIRST to release unique constraints (steamAppId, igdbId, psnTitleId)
     await prisma.$transaction([
+      prisma.gameLog.delete({
+        where: { id: secondaryLog.id },
+      }),
       prisma.gameLog.update({
         where: { id: primaryLog.id },
         data: {
@@ -69,15 +69,11 @@ export async function mergeGameLogs(primaryLogId: string, secondaryLogId: string
           status: mergedStatus,
           playedOn: mergedPlayedOn,
           isOwned: primaryLog.isOwned || secondaryLog.isOwned,
-          // Fill missing external platform IDs from the secondary record
           psnTitleId: primaryLog.psnTitleId || secondaryLog.psnTitleId,
           steamAppId: primaryLog.steamAppId ?? secondaryLog.steamAppId,
           igdbId: primaryLog.igdbId ?? secondaryLog.igdbId,
           coverUrl: primaryLog.coverUrl || secondaryLog.coverUrl,
         },
-      }),
-      prisma.gameLog.delete({
-        where: { id: secondaryLog.id },
       }),
     ]);
 

@@ -14,6 +14,7 @@ import UserListsGrid from '@/components/UserListsGrid';
 import ProfileGameGrid from '@/components/ProfileGameGrid';
 import EditableAvatar from '@/components/EditableAvatar';
 import PsnSyncModal from '@/components/PsnSyncModal';
+import PossibleDuplicatesSection from '@/components/PossibleDuplicatesSection';
 
 
 interface PageProps {
@@ -179,6 +180,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
         {/* Left 2/3 Column: Game Collection Grid */}
         <div className="lg:col-span-2 space-y-4">
           <ProfileGameGrid logs={logs} />
+          <PossibleDuplicatesSection userGames={logs} isOwner={isProfileOwner} />
         </div>
 
 
