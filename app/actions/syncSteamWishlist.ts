@@ -305,8 +305,10 @@ export async function syncSteamWishlist() {
 
       const gameTitle = igdbInfo?.name || steamDetails?.name || `Steam App ${appId}`;
 
+      const igdbCover = igdbInfo?.coverUrl;
+
       const coverUrl =
-        igdbInfo?.coverUrl ||
+        igdbCover ||
         `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
 
       const resolvedIgdbId = igdbInfo?.igdbId ? Number(igdbInfo.igdbId) : null;
@@ -334,6 +336,7 @@ export async function syncSteamWishlist() {
             steamAppId: appId,
             status: 'WANT TO PLAY',
             isOwned: false,
+            playedOn: null,
           },
         });
       } else {
@@ -346,6 +349,7 @@ export async function syncSteamWishlist() {
             status: 'WANT TO PLAY',
             isOwned: false,
             igdbId: resolvedIgdbId,
+            playedOn: null,
           },
         });
       }

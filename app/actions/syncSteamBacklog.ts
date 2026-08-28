@@ -5,7 +5,6 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
-// Helper: Fetch Twitch Access Token
 async function getTwitchToken(clientId: string, clientSecret: string): Promise<string | null> {
   try {
     const tokenRes = await fetch(
@@ -21,7 +20,53 @@ async function getTwitchToken(clientId: string, clientSecret: string): Promise<s
   }
 }
 
-// Helper: Batch lookup IGDB IDs for multiple steam app ids in one request
+function sanitizeTitle(title: string): string {
+  return title
+    .replace(/[™®©]/g, '')
+    .replace(/['"']/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function searchIgdbByTitle(
+  title: string,
+  clientId: string,
+  accessToken: string
+): Promise<{ igdbId: number; name: string; coverUrl: string } | null> {
+  const cleanTitle = sanitizeTitle(title);
+  if (!cleanTitle) return null;
+
+  try {
+    const res = await fetch('https://api.igdb.com/v4/games', {
+      method: 'POST',
+      headers: {
+        'Client-ID': clientId,
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'text/plain',
+      },
+      cache: 'no-store',
+      body: `fields id, name, cover.url; search "${cleanTitle}"; limit 1;`,
+    });
+
+    if (!res.ok) return null;
+    const games = await res.json();
+    if (!Array.isArray(games) || games.length === 0) return null;
+
+    const game = games[0];
+    const rawCover = game.cover?.url;
+    const coverUrl = rawCover ? `https:${rawCover.replace('t_thumb', 't_1080p')}` : '';
+
+    return {
+      igdbId: Number(game.id),
+      name: game.name,
+      coverUrl,
+    };
+  } catch (error) {
+    console.error(`IGDB title fallback search failed for ${title}:`, error);
+    return null;
+  }
+}
+
 async function getIgdbIdsForSteamApps(
   steamAppIds: number[],
   clientId: string,
@@ -32,7 +77,6 @@ async function getIgdbIdsForSteamApps(
   try {
     const formattedUids = steamAppIds.map((id) => `"${id}"`).join(',');
 
-    // category = 1 corresponds to Steam in IGDB external_games
     const extRes = await fetch('https://api.igdb.com/v4/external_games', {
       method: 'POST',
       headers: {
@@ -64,7 +108,6 @@ async function getIgdbIdsForSteamApps(
 
     if (igdbIdsToFetch.size === 0) return {};
 
-    // Fetch Titles and cover urls directly from IGDB /games endpoint
     const gamesRes = await fetch('https://api.igdb.com/v4/games', {
       method: 'POST',
       headers: {
@@ -83,9 +126,7 @@ async function getIgdbIdsForSteamApps(
     if (Array.isArray(gamesData)) {
       gamesData.forEach((game: any) => {
         const rawCover = game.cover?.url;
-        const coverUrl = rawCover
-          ? `https:${rawCover.replace('t_thumb', 't_1080p')}`
-          : '';
+        const coverUrl = rawCover ? `https:${rawCover.replace('t_thumb', 't_1080p')}` : '';
         igdbGameDetailsMap[Number(game.id)] = {
           name: game.name,
           coverUrl,
@@ -103,9 +144,7 @@ async function getIgdbIdsForSteamApps(
         finalMap[appId] = {
           igdbId: Number(igdbId),
           name: details.name,
-          coverUrl:
-            details.coverUrl ||
-            `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`,
+          coverUrl: details.coverUrl,
         };
       }
     });
@@ -161,7 +200,6 @@ export async function syncSteamBacklog() {
     const steamData = await SteamRes.json();
     const steamGames = steamData.response?.games || [];
 
-    // Filter games with 0 playtime
     const backlogGames = steamGames.filter(
       (game: { playtime_forever?: number }) => (game.playtime_forever || 0) < 1
     );
@@ -172,27 +210,21 @@ export async function syncSteamBacklog() {
 
     const twitchToken = await getTwitchToken(TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET);
 
-    // Load existing user logs into memory once to prevent unique constraint collisions
+    // Map existing records by steamAppId AND igdbId to handle cross-platform entries cleanly
     const existingLogs = await prisma.gameLog.findMany({
       where: { userId: user.id },
       select: { id: true, steamAppId: true, igdbId: true },
     });
 
-    const steamToLogMap = new Map<number, { id: string; igdbId: number | null }>();
-    const takenSteamAppIds = new Set<number>();
-    const takenIgdbIds = new Set<number>();
+    const steamToLogMap = new Map<number, string>();
+    const igdbToLogMap = new Map<number, string>();
 
     for (const log of existingLogs) {
       if (log.steamAppId !== null) {
-        const appIdNum = Number(log.steamAppId);
-        steamToLogMap.set(appIdNum, {
-          id: log.id,
-          igdbId: log.igdbId !== null ? Number(log.igdbId) : null,
-        });
-        takenSteamAppIds.add(appIdNum);
+        steamToLogMap.set(Number(log.steamAppId), log.id);
       }
       if (log.igdbId !== null) {
-        takenIgdbIds.add(Number(log.igdbId));
+        igdbToLogMap.set(Number(log.igdbId), log.id);
       }
     }
 
@@ -211,44 +243,57 @@ export async function syncSteamBacklog() {
 
       for (const game of chunk) {
         const appId = Number(game.appid);
-        const igdbInfo = igdbDetailsMap[appId];
+        const rawName = game.name ? String(game.name) : `Steam App ${appId}`;
 
-        // Safe title parsing to avoid runtime TypeError if game.name is undefined
-        const rawName = game.name ? String(game.name) : null;
-        const fallbackTitle = rawName && !rawName.startsWith('Steam App') ? rawName : `Steam App ${appId}`;
-        const gameTitle = igdbInfo?.name || fallbackTitle;
+        let igdbInfo = igdbDetailsMap[appId];
 
+        if (!igdbInfo && twitchToken) {
+          const fallback = await searchIgdbByTitle(rawName, TWITCH_CLIENT_ID, twitchToken);
+          if (fallback) {
+            igdbInfo = fallback;
+          }
+        }
+
+        const gameTitle = igdbInfo?.name || rawName;
         const coverUrl =
           igdbInfo?.coverUrl ||
           `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
 
         const candidateIgdbId = igdbInfo?.igdbId ? Number(igdbInfo.igdbId) : null;
-        const existingLog = steamToLogMap.get(appId);
 
+        // Check if an existing log matches steamAppId OR igdbId
+        let existingLogId = steamToLogMap.get(appId);
+        if (!existingLogId && candidateIgdbId !== null) {
+          existingLogId = igdbToLogMap.get(candidateIgdbId);
+        }
+
+        // Determine if safe to set igdbId without unique collision
         let safeIgdbId: number | null = null;
-
-        // Resolve IGDB ID safely to prevent unique constraint crash across multiple games
         if (candidateIgdbId !== null) {
-          if (existingLog?.igdbId === candidateIgdbId) {
+          const currentOwnerId = igdbToLogMap.get(candidateIgdbId);
+          if (!currentOwnerId || currentOwnerId === existingLogId) {
             safeIgdbId = candidateIgdbId;
-          } else if (!takenIgdbIds.has(candidateIgdbId)) {
-            safeIgdbId = candidateIgdbId;
-            takenIgdbIds.add(candidateIgdbId);
           }
         }
 
-        if (existingLog) {
+        if (existingLogId) {
           await prisma.gameLog.update({
-            where: { id: existingLog.id },
+            where: { id: existingLogId },
             data: {
               gameTitle,
               coverUrl,
               steamAppId: appId,
               isOwned: true,
               status: 'BACKLOG',
-              igdbId: safeIgdbId,
+              playedOn: null,
+              ...(safeIgdbId !== null ? { igdbId: safeIgdbId } : {}),
             },
           });
+
+          steamToLogMap.set(appId, existingLogId);
+          if (safeIgdbId !== null) {
+            igdbToLogMap.set(safeIgdbId, existingLogId);
+          }
         } else {
           const newLog = await prisma.gameLog.create({
             data: {
@@ -261,13 +306,14 @@ export async function syncSteamBacklog() {
               isOwned: true,
               igdbId: safeIgdbId,
               platforms: ['STEAM'],
+              playedOn: null,
             },
           });
 
-          steamToLogMap.set(appId, {
-            id: newLog.id,
-            igdbId: safeIgdbId,
-          });
+          steamToLogMap.set(appId, newLog.id);
+          if (safeIgdbId !== null) {
+            igdbToLogMap.set(safeIgdbId, newLog.id);
+          }
         }
 
         savedCount++;
@@ -283,3 +329,5 @@ export async function syncSteamBacklog() {
     return { success: false, error: 'Database transaction failed during sync.' };
   }
 }
+
+

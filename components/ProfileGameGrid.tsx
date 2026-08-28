@@ -6,6 +6,7 @@ import Link from 'next/link';
 import AddToListModal from '@/components/AddToListModal'; // verify your import path
 import LogGameButton from '@/components/LogGameButton'; // verify your import path
 import { getActiveUserLists } from '@/app/actions/getUserLists'; // ✅ Required for lists
+import GameCoverImage from './GameCoverImage';
 
 interface GameLog {
     id: string;
@@ -116,16 +117,33 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
                         className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 w-full sm:w-24"
                     />
 
-                    <select
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value as any)}
-                        className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-purple-500"
-                    >
-                        <option value="NEWEST">Recently Added</option>
-                        <option value="TITLE">Title (A-Z)</option>
-                        <option value="RATING">Highest Rated</option>
-                        <option value="PLAYTIME">Most Played</option>
-                    </select>
+                    <div className="relative inline-block">
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value as any)}
+                            className="appearance-none bg-slate-950 border border-slate-800 rounded-xl pl-3 pr-8 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-purple-500 cursor-pointer"
+                        >
+                            <option value="NEWEST">Recently Added</option>
+                            <option value="TITLE">Title (A-Z)</option>
+                            <option value="RATING">Highest Rated</option>
+                            <option value="PLAYTIME">Most Played</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400">
+                            <svg
+                                className="w-3.5 h-3.5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="2"
+                                    d="M19 9l-7 7-7-7"
+                                />
+                            </svg>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -149,9 +167,10 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
                                 <Link href={href} className="flex-1 flex flex-col relative">
                                     <div className="aspect-[3/4] w-full bg-slate-950 relative overflow-hidden">
                                         {log.coverUrl ? (
-                                            <img
+                                            <GameCoverImage
                                                 src={log.coverUrl}
                                                 alt={log.gameTitle}
+                                                steamAppId={log.steamAppId}
                                                 className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                                             />
                                         ) : (
@@ -161,17 +180,18 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
                                         )}
 
                                         {/* Top-Left: Owned Badge */}
+                                        {/*                                       
                                         {log.isOwned && (
                                             <div className="absolute top-2 left-2 z-10">
-                                                <span className="bg-emerald-500/90 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-md shadow backdrop-blur-sm tracking-wider uppercase flex items-center gap-1 border border-emerald-400/30">
+                                                <span className="bg-sky-500/90 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-md shadow backdrop-blur-sm tracking-wider uppercase flex items-center gap-1 border border-sky-400/30">
                                                     <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
                                                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                                     </svg>
-                                                    Owned
+                                                    
                                                 </span>
                                             </div>
-                                        )}
-
+                                        )} 
+*/}
                                         {/* Top-Right: Status Badge */}
                                         <span className={`absolute top-2 right-2 px-1.5 py-0.5 text-[9px] font-black uppercase rounded border shadow-md ${log.status === 'PLAYED'
                                             ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40'
@@ -184,7 +204,7 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
 
                                         {/* Playtime Overlay Badge (If Available) */}
                                         {log.playtimeHours && log.playtimeHours > 0 ? (
-                                            <span className="absolute bottom-2 left-2 bg-slate-950/80 backdrop-blur-xs text-slate-300 border border-slate-700/60 text-[9px] font-mono px-1.5 py-0.5 rounded shadow">
+                                            <span className="absolute top-2 left-2 bg-slate-950/80 backdrop-blur-xs text-slate-300 border border-slate-700/60 text-[9px] font-mono px-1.5 py-0.5 rounded shadow">
                                                 {log.playtimeHours} hrs
                                             </span>
                                         ) : null}
@@ -199,24 +219,24 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
 
                                 {/* Add to List & Log buttons */}
                                 <div className="p-2 border-t border-slate-800/80 bg-slate-950/90 flex items-center justify-end gap-1.5 z-20">
-                                        <AddToListModal
-                                            game={{
-                                                name: log.gameTitle,
-                                                coverUrl: log.coverUrl,
-                                                igdbId: log.igdbId,
-                                                steamAppId: log.steamAppId
-                                            }}
-                                            userLists={userLists}
-                                            customTrigger={
-                                                <button
-                                                    type="button"
-                                                    title="Add to List"
-                                                    className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md transition text-[11px] font-semibold flex items-center gap-1"
-                                                >
-                                                    <span>📋</span> List
-                                                </button>
-                                            }
-                                        />
+                                    <AddToListModal
+                                        game={{
+                                            name: log.gameTitle,
+                                            coverUrl: log.coverUrl,
+                                            igdbId: log.igdbId,
+                                            steamAppId: log.steamAppId
+                                        }}
+                                        userLists={userLists}
+                                        customTrigger={
+                                            <button
+                                                type="button"
+                                                title="Add to List"
+                                                className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md transition text-[11px] font-semibold flex items-center gap-1"
+                                            >
+                                                <span>📋</span> List
+                                            </button>
+                                        }
+                                    />
 
                                     <LogGameButton
                                         game={{

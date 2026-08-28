@@ -194,7 +194,9 @@ export async function syncSteamPlayedGames() {
                 // Deremine status based on playtime
                 const rawMinutes = typeof game.playtime_forever === 'number' ? game.playtime_forever : 0;
                 const playtimeHours = Number((rawMinutes / 60).toFixed(1));
-
+                
+                const rawLastPlayed = typeof game.rtime_last_played === 'number' ? game.rtime_last_played: 0;
+                const playedOn = rawLastPlayed > 0 ? new Date(rawLastPlayed * 1000) : null;
 
                 const resolvedIgdbId = igdbInfo?.igdbId ? Number(igdbInfo.igdbId) : null;
 
@@ -220,6 +222,7 @@ export async function syncSteamPlayedGames() {
                             coverUrl,
                             playtimeHours,
                             steamAppId: appId,
+                            playedOn,
                             isOwned: true,
                             ...(resolvedIgdbId ? { igdbId: resolvedIgdbId } : {}),
                         },
@@ -235,6 +238,7 @@ export async function syncSteamPlayedGames() {
                             isOwned: true,
                             igdbId: resolvedIgdbId,
                             playtimeHours,
+                            playedOn,
                         },
                     });
                 }
