@@ -7,6 +7,7 @@ import ListProgressSummary from '@/components/ListProgressSummary';
 import FollowListButton from '@/components/FollowListButton';
 import EditableListGrid from './EditableListGrid';
 import EditListModal from '@/components/EditListModal';
+import DOMPurify from 'isomorphic-dompurify';
 
 interface Props {
     params: Promise<{ id: string }>;
@@ -138,9 +139,13 @@ export default async function ListPage({ params }: Props) {
                             {list.title}
                         </h1>
                         {list.description && (
-                            <p className="text-xs text-slate-300 leading-relaxed mb-4">
-                                {list.description}
-                            </p>
+                        <div
+                            className="text-xs text-slate-300 leading-relaxed mb-4 prose prose-invert prose-xs max-w-none 
+                                    [&_a]:text-purple-400 [&_a]:underline [&_strong]:text-white [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4"
+                            dangerouslySetInnerHTML={{
+                            __html: DOMPurify.sanitize(list.description),
+                            }}
+                        />
                         )}
                         <div>
                             <span className="text-xs text-slate-300 leading-relaxed">Curated by </span>

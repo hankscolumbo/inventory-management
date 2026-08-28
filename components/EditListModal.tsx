@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { updateListDetails } from '@/app/actions/listActions';
+import TipTapEditor from './TipTapEditor';
 
 interface EditListModalProps {
   listId: string;
@@ -78,11 +79,9 @@ export default function EditListModal({
             <label className="block text-xs font-semibold text-slate-300 mb-1">
               Description <span className="text-slate-500 font-normal">(Optional)</span>
             </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Add a brief summary about this collection..."
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 resize-none h-24"
+            <TipTapEditor
+              content={description}
+              onChange={setDescription}
             />
           </div>
 
