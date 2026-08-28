@@ -161,8 +161,10 @@ export default function EditableListGrid({
                 {isEditingThisNote ? (
                   <div className="mt-2 space-y-1.5" onClick={(e) => e.stopPropagation()}>
                     <textarea
+                      autoFocus
                       value={noteText}
                       onChange={(e) => setNoteText(e.target.value)}
+                      onFocus={(e) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)}
                       placeholder="Add entry note..."
                       className="w-full bg-slate-950 border border-purple-500 rounded-lg p-2 text-[11px] text-slate-200 focus:outline-none resize-none h-16"
                     />

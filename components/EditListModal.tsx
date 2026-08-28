@@ -3,195 +3,132 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter } from 'next/navigation';
-import { updateList, deleteList } from '@/app/actions/manageLists';
+import { updateListDetails } from '@/app/actions/listActions';
 
 interface EditListModalProps {
-  list: {
-    id: string;
-    title: string;
-    description?: string | null;
-    username?: string | null;
-  };
+  listId: string;
+  initialTitle: string;
+  initialDescription: string;
 }
 
-export default function EditListModal({ list }: EditListModalProps) {
+export default function EditListModal({
+  listId,
+  initialTitle,
+  initialDescription,
+}: EditListModalProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [title, setTitle] = useState(initialTitle);
+  const [description, setDescription] = useState(initialDescription);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
   const [mounted, setMounted] = useState(false);
-  const [title, setTitle] = useState(list.title);
-  const [description, setDescription] = useState(list.description || '');
-  const [loading, setLoading] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-
-  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const handleUpdate = async (e: React.SyntheticEvent<HTMLFormElement>) => {
+  // React 19 SubmitEvent typing for onSubmit handlers
+  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoading(true);
-    setFeedback(null);
-
-    const res = await updateList(list.id, { title, description });
-    setLoading(false);
-
-    if (res.success) {
-      setFeedback({ type: 'success', message: 'List updated successfully!' });
-      setTimeout(() => {
-        setIsOpen(false);
-        setFeedback(null);
-        router.refresh();
-      }, 800);
-    } else {
-      setFeedback({ type: 'error', message: res.error || 'Failed to update list.' });
+    if (!title.trim()) {
+      setError('Title is required');
+      return;
     }
-  };
 
-  const handleDelete = async () => {
-    setIsDeleting(true);
-    setFeedback(null);
+    setIsSubmitting(true);
+    setError('');
 
-    const res = await deleteList(list.id);
-    setIsDeleting(false);
+    const res = await updateListDetails(listId, title, description);
+    setIsSubmitting(false);
 
     if (res.success) {
       setIsOpen(false);
-      router.push(list.username ? `/u/${list.username}` : 'lists');
-      router.refresh();
     } else {
-      setFeedback({ type: 'error', message: res.error || 'Failed to delete list.' });
+      setError(res.error || 'Something went wrong');
     }
   };
 
-  const modalContent = isOpen ? (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <h3 className="text-base font-extrabold text-white">Edit List Settings</h3>
-          <button
-            type="button"
-            onClick={() => setIsOpen(false)}
-            className="text-slate-400 hover:text-white font-bold text-sm p-1"
-          >
-            ✕
-          </button>
-        </div>
+  const modalMarkup = (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-md p-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative z-[101]">
+        <h2 className="text-lg font-bold text-white mb-4">Edit List Details</h2>
 
-        {feedback && (
-          <div
-            className={`p-3 rounded-xl border text-xs font-semibold ${
-              feedback.type === 'success'
-                ? 'bg-emerald-950/60 border-emerald-800 text-emerald-300'
-                : 'bg-red-950/60 border-red-800 text-red-300'
-            }`}
-          >
-            {feedback.message}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="p-2.5 bg-red-950/60 border border-red-800 text-red-300 text-xs rounded-lg">
+              {error}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              List Title
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Favorite RPGs of All Time"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
+              required
+            />
           </div>
-        )}
 
-        {confirmDelete ? (
-          /* Delete Confirmation View */
-          <div className="space-y-4 py-2">
-            <div className="p-3 bg-red-950/40 border border-red-800/80 rounded-xl space-y-1">
-              <p className="text-xs font-bold text-red-300">Are you sure you want to delete this list?</p>
-              <p className="text-[11px] text-red-400/90">
-                "{list.title}" and all its saved items will be permanently removed.
-              </p>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={isDeleting}
-                onClick={handleDelete}
-                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl shadow transition disabled:opacity-50"
-              >
-                {isDeleting ? 'Deleting...' : 'Yes, Delete List'}
-              </button>
-            </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              Description <span className="text-slate-500 font-normal">(Optional)</span>
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Add a brief summary about this collection..."
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 resize-none h-24"
+            />
           </div>
-        ) : (
-          /* Edit Form View */
-          <form onSubmit={handleUpdate} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">List Title</label>
-              <input
-                type="text"
-                required
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 text-white text-xs px-4 py-2.5 rounded-xl focus:outline-none focus:border-purple-500"
-              />
-            </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Description <span className="text-slate-500">(Optional)</span>
-              </label>
-              <textarea
-                rows={3}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="What is this list about?"
-                className="w-full bg-slate-950 border border-slate-800 text-white text-xs p-3 rounded-xl focus:outline-none focus:border-purple-500 resize-none"
-              />
-            </div>
-
-            <div className="flex items-center justify-between pt-3 border-t border-slate-800/80">
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(true)}
-                className="text-xs font-bold text-red-400 hover:text-red-300 hover:underline"
-              >
-                🗑️ Delete List
-              </button>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="px-3 py-1.5 text-xs font-semibold text-slate-400 hover:text-white"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading || !title.trim()}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow transition"
-                >
-                  {loading ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-            </div>
-          </form>
-        )}
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="px-4 py-2 text-xs text-slate-400 hover:text-white transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl transition disabled:opacity-50"
+            >
+              {isSubmitting ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
-  ) : null;
+  );
 
   return (
     <>
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold rounded-xl transition flex items-center gap-1.5"
+        title="Edit list details"
+        aria-label="Edit list details"
+        className="p-1.5 text-slate-400 hover:text-white bg-slate-950/60 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-lg transition"
       >
-        <span>⚙️</span> Edit List
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+          />
+        </svg>
       </button>
 
-      {mounted && modalContent && createPortal(modalContent, document.body)}
+      {mounted && isOpen && createPortal(modalMarkup, document.body)}
     </>
   );
 }
+
+
