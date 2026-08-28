@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "GameLog" ALTER COLUMN "playedOn" DROP NOT NULL,
+ALTER COLUMN "playedOn" DROP DEFAULT;
