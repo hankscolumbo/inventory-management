@@ -1,7 +1,6 @@
 // app/actions/listActions.ts
 'use server';
 
-
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
@@ -101,5 +100,35 @@ export async function updateListItemNote(itemId: string, listId: string, note: s
   } catch (error) {
     console.error('Error updating list note:', error);
     return { success: false, error: 'Failed to update note.' };
+  }
+}
+
+export async function deleteListEntry(entryId: string, listId: string) {
+  const session = await auth();
+  if (!session?.user?.email) return { success: false, error: 'Unauthorized' };
+
+  try {
+    const entry = await prisma.customListItem.findUnique({
+      where: { id: entryId },
+      include: {
+        customList: {
+          include: { user: true },
+        },
+      },
+    });
+
+    if (!entry || entry.customList.user.email !== session.user.email) {
+      return { success: false, error: 'Forbidden' };
+    }
+
+    await prisma.customListItem.delete({
+      where: { id: entryId },
+    });
+
+    revalidatePath(`/list/${listId}`);
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting entry:', error);
+    return { success: false, error: 'Failed to delete entry.' };
   }
 }

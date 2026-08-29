@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import GameCardActions from '@/components/GameCardActions';
 import AddGamesToListModal from '@/components/AddGamesToListModal';
-import { reorderListItems, updateListItemNote } from '@/app/actions/listActions';
+import { reorderListItems, updateListItemNote, deleteListEntry } from '@/app/actions/listActions';
 
 interface ListItem {
   id: string;
@@ -38,6 +38,7 @@ export default function EditableListGrid({
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Sync state whenever server revalidation passes updated initialItems
   useEffect(() => {
@@ -90,6 +91,23 @@ export default function EditableListGrid({
     }
   };
 
+  // Delete Entry Handler
+  const handleDelete = async (entryId: string) => {
+    if (!window.confirm('Are you sure you want to remove this item from your list?')) {
+      return;
+    }
+
+    setDeletingId(entryId);
+    const res = await deleteListEntry(entryId, listId);
+    setDeletingId(null);
+
+    if (res?.success) {
+      setItems((prev) => prev.filter((i) => i.id !== entryId));
+    } else {
+      alert(res?.error || 'Failed to delete entry.');
+    }
+  };
+
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
       {items.map((item, index) => {
@@ -111,24 +129,47 @@ export default function EditableListGrid({
                 : 'hover:border-slate-700'
             }`}
           >
-            {/* Top Bar: Position Rank Badge & Played Status */}
+            {/* Top Bar: Position Rank (Left), Played Status (Center), Delete Button (Right) */}
             <div className="absolute top-2 left-2 right-2 z-10 flex items-center justify-between pointer-events-none">
-              <span className="px-2 py-0.5 bg-slate-950/90 text-purple-300 text-[10px] font-extrabold rounded-md border border-purple-800/80 shadow backdrop-blur-sm">
+              <span className="px-2 py-0.5 bg-slate-950/90 text-purple-300 text-[10px] font-extrabold rounded-md border border-purple-800/80 shadow backdrop-blur-sm pointer-events-auto select-none">
                 #{rank}
               </span>
 
               {session && (
-                <div>
+                <div className="absolute left-1/2 -translate-x-1/2 pointer-events-auto">
                   {item.isPlayed ? (
-                    <span className="px-2 py-0.5 bg-emerald-500/90 text-white text-[10px] font-bold rounded-full shadow backdrop-blur-sm">
+                    <span className="px-2 py-0.5 bg-emerald-500/90 text-white text-[10px] font-bold rounded-full shadow backdrop-blur-sm whitespace-nowrap select-none">
                       ✓ Played
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 bg-slate-950/80 text-slate-400 text-[10px] font-semibold rounded-full border border-slate-700/80 backdrop-blur-sm">
+                    <span className="px-2 py-0.5 bg-slate-950/80 text-slate-400 text-[10px] font-semibold rounded-full border border-slate-700/80 backdrop-blur-sm whitespace-nowrap select-none">
                       Unplayed
                     </span>
                   )}
                 </div>
+              )}
+
+              {isOwner && (
+                <button
+                  type="button"
+                  disabled={deletingId === item.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(item.id);
+                  }}
+                  title="Remove from list"
+                  aria-label="Remove item"
+                  className="pointer-events-auto p-1.5 text-slate-300 hover:text-white bg-slate-950/80 hover:bg-red-950/90 border border-slate-700/60 hover:border-red-600 rounded-lg backdrop-blur-sm transition disabled:opacity-50"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                </button>
               )}
             </div>
 
@@ -164,7 +205,12 @@ export default function EditableListGrid({
                       autoFocus
                       value={noteText}
                       onChange={(e) => setNoteText(e.target.value)}
-                      onFocus={(e) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)}
+                      onFocus={(e) =>
+                        e.currentTarget.setSelectionRange(
+                          e.currentTarget.value.length,
+                          e.currentTarget.value.length
+                        )
+                      }
                       placeholder="Add entry note..."
                       className="w-full bg-slate-950 border border-purple-500 rounded-lg p-2 text-[11px] text-slate-200 focus:outline-none resize-none h-16"
                     />
@@ -228,5 +274,3 @@ export default function EditableListGrid({
     </div>
   );
 }
-
-
