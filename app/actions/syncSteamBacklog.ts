@@ -329,5 +329,3 @@ export async function syncSteamBacklog() {
     return { success: false, error: 'Database transaction failed during sync.' };
   }
 }
-
-
