@@ -2,6 +2,7 @@
 'use client';
 
 import Link from 'next/link';
+import SafeHtml from './safeHtml';
 
 export interface CustomList {
   id: string;
@@ -52,13 +53,13 @@ export default function UserListsGrid({ lists, isOwner }: UserListsGridProps) {
                   </span>
                 )}
               </div>
-
-              {list.description ? (
-                <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
-                  {list.description}
-                </p>
-              ) : (
-                <p className="text-xs text-slate-600 italic">No description provided.</p>
+                
+              {list.description && (
+              <SafeHtml
+                  html={list.description}
+                  className="text-xs text-slate-300 leading-relaxed mb-4 prose prose-invert prose-xs max-w-none 
+                          [&_a]:text-purple-400 [&_a]:underline [&_strong]:text-white [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4"
+              />
               )}
             </div>
 
