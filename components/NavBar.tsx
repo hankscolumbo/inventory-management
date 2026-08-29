@@ -37,14 +37,11 @@ export default async function Navbar() {
                 </div>
 
                 {/* Column 2: GameSearch */}
-                <div className="flex items-center justify-center w-full">
+                <div className="col-span-2 flex items-center justify-center w-full">
                     <div className="w-full max-w-xs sm:max-w-sm relative [&_input]:h-8 [&_input]:py-1 [&_input]:text-xs [&_svg]:top-1/2 [&_svg]:-translate-y-1/2">
                         <GameSearch />
                     </div>
                 </div>
-
-                {/* Column 3: Empty */}
-                <div></div>
 
                 {/* Column 4: Community Search Bar */}
                 <div className="flex items-center justify-center w-full">
