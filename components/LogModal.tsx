@@ -212,7 +212,7 @@ export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
               <input
                 type="number"
                 min="0"
-                step="0.5"
+                step="0.1"
                 placeholder="e.g. 12.5"
                 value={playtimeHours}
                 onChange={(e) =>

@@ -42,6 +42,19 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
     const [userLists, setUserLists] = useState<{ id: string; title: string }[]>([]);
     const ITEMS_PER_PAGE = 25;
 
+    // Define outside your component or in a constants file
+    const STATUS_STYLES: Record<string, string> = {
+        'PLAYED': 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40',
+        'PLAYING': 'bg-cyan-950/90 text-cyan-300 border-cyan-500/40',
+        'BACKLOG': 'bg-amber-950/90 text-amber-300 border-amber-500/40',
+        'WANT TO PLAY': 'bg-indigo-950/90 text-indigo-300 border-indigo-500/40',
+        //'ON HOLD': 'bg-orange-950/90 text-orange-300 border-orange-500/40',
+        //'DROPPED': 'bg-rose-950/90 text-rose-300 border-rose-500/40',
+        //'COMPLETED': 'bg-purple-950/90 text-purple-300 border-purple-500/40',
+    };
+
+    const DEFAULT_STATUS_STYLE = 'bg-slate-900/90 text-slate-300 border-slate-700/60';
+
     // ✅ Fetch active user custom lists on mount
     useEffect(() => {
         getActiveUserLists().then((lists) => setUserLists(lists));
@@ -193,12 +206,10 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
                                         )} 
 */}
                                         {/* Top-Right: Status Badge */}
-                                        <span className={`absolute top-2 right-2 px-1.5 py-0.5 text-[9px] font-black uppercase rounded border shadow-md ${log.status === 'PLAYED'
-                                            ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40'
-                                            : log.status === 'PLAYING'
-                                                ? 'bg-cyan-950/90 text-cyan-300 border-cyan-500/40'
-                                                : 'bg-amber-950/90 text-amber-300 border-amber-500/40'
-                                            }`}>
+                                        <span
+                                            className={`absolute top-2 right-2 px-1.5 py-0.5 text-[9px] font-black uppercase rounded border shadow-md ${STATUS_STYLES[log.status] || DEFAULT_STATUS_STYLE
+                                                }`}
+                                        >
                                             {log.status}
                                         </span>
 
@@ -218,7 +229,7 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
                                 </Link>
 
                                 {/* Add to List & Log buttons */}
-                                <div className="p-2 border-t border-slate-800/80 bg-slate-950/90 flex items-center justify-end gap-1.5 z-20">
+                                <div className="p-2 border-t border-slate-800/80 bg-slate-950/90 flex items-center justify-center gap-3.5 z-20">
                                     <AddToListModal
                                         game={{
                                             name: log.gameTitle,
