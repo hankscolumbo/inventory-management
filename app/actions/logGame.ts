@@ -129,6 +129,7 @@ export async function logGame(input: LogInput) {
             platforms,
             playtimeHours: input.playtimeHours ?? null,
             isOwned: input.isOwned ?? false,
+            psnTitleIds: [],
         },
       });
     }

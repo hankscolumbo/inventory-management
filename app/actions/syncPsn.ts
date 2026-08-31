@@ -176,26 +176,41 @@ export async function syncPsnAccount(npssoToken: string) {
       data: { psnNpsso: cleanToken },
     });
 
-    // 1. Load all existing games into memory selecting psnTitleIds array
+    // 1. Load all existing games into memory
     const existingLogs = await prisma.gameLog.findMany({
       where: { userId: dbUser.id },
-      select: { id: true, psnTitleIds: true, steamAppId: true, igdbId: true },
+      select: {
+        id: true,
+        gameTitle: true,
+        psnTitleIds: true,
+        steamAppId: true,
+        igdbId: true,
+        playtimeHours: true,
+        status: true,
+        coverUrl: true,
+      },
     });
 
-    const psnToLogMap = new Map<
-      string,
-      { id: string; steamAppId: number | null; igdbId: number | null; psnTitleIds: string[] }
-    >();
+    // Lookup maps for PSN ID, IGDB ID, Steam ID, and Title matching
+    const psnToLogMap = new Map<string, any>();
+    const igdbToLogMap = new Map<number, any>();
+    const steamToLogMap = new Map<number, any>();
+    const titleToLogMap = new Map<string, any>();
+
     const takenSteamAppIds = new Set<number>();
     const takenIgdbIds = new Set<number>();
 
-    // 2. Map every PSN ID in the psnTitleIds array to its log record
+    // 2. Populate tracking maps with existing user records
     for (const log of existingLogs) {
       const formattedLog = {
         id: log.id,
+        gameTitle: log.gameTitle,
         steamAppId: log.steamAppId !== null ? Number(log.steamAppId) : null,
         igdbId: log.igdbId !== null ? Number(log.igdbId) : null,
         psnTitleIds: log.psnTitleIds || [],
+        playtimeHours: log.playtimeHours,
+        status: log.status,
+        coverUrl: log.coverUrl,
       };
 
       if (log.psnTitleIds && log.psnTitleIds.length > 0) {
@@ -203,11 +218,16 @@ export async function syncPsnAccount(npssoToken: string) {
           psnToLogMap.set(id, formattedLog);
         }
       }
+      if (formattedLog.igdbId !== null) {
+        igdbToLogMap.set(formattedLog.igdbId, formattedLog);
+        takenIgdbIds.add(formattedLog.igdbId);
+      }
       if (formattedLog.steamAppId !== null) {
+        steamToLogMap.set(formattedLog.steamAppId, formattedLog);
         takenSteamAppIds.add(formattedLog.steamAppId);
       }
-      if (formattedLog.igdbId !== null) {
-        takenIgdbIds.add(formattedLog.igdbId);
+      if (log.gameTitle) {
+        titleToLogMap.set(log.gameTitle.trim().toLowerCase(), formattedLog);
       }
     }
 
@@ -231,12 +251,24 @@ export async function syncPsnAccount(npssoToken: string) {
       const isOwned = service !== 'ps_plus';
 
       const externalIds = await fetchExternalGameIds(gameTitle);
-      const existingLog = psnToLogMap.get(psnTitleId);
+
+      // 3. Match strategy: PSN ID -> IGDB ID -> Steam ID -> Normalized Title
+      let existingLog = psnToLogMap.get(psnTitleId);
+
+      if (!existingLog && externalIds.igdbId) {
+        existingLog = igdbToLogMap.get(Number(externalIds.igdbId));
+      }
+      if (!existingLog && externalIds.steamAppId) {
+        existingLog = steamToLogMap.get(Number(externalIds.steamAppId));
+      }
+      if (!existingLog && gameTitle) {
+        existingLog = titleToLogMap.get(gameTitle.trim().toLowerCase());
+      }
 
       let safeSteamAppId: number | null = null;
       let safeIgdbId: number | null = null;
 
-      // 3. Resolve Steam App ID safely
+      // 4. Resolve Steam App ID safely
       if (externalIds.steamAppId !== undefined && externalIds.steamAppId !== null) {
         const candidateSteam = Number(externalIds.steamAppId);
         if (existingLog?.steamAppId === candidateSteam) {
@@ -247,7 +279,7 @@ export async function syncPsnAccount(npssoToken: string) {
         }
       }
 
-      // 4. Resolve IGDB ID safely
+      // 5. Resolve IGDB ID safely
       if (externalIds.igdbId !== undefined && externalIds.igdbId !== null) {
         const candidateIgdb = Number(externalIds.igdbId);
         if (existingLog?.igdbId === candidateIgdb) {
@@ -261,23 +293,36 @@ export async function syncPsnAccount(npssoToken: string) {
       let currentLogId: string;
       let currentPsnTitleIds: string[];
 
-      // 5. Update if log exists with this PSN ID; otherwise create new record
+      // 6. Update existing record (manual or previous sync) or create new log
       if (existingLog) {
         const updatedPsnTitleIds = Array.from(
           new Set([...(existingLog.psnTitleIds || []), psnTitleId])
         );
 
+        // Retain higher playtime value
+        const updatedPlaytime = Math.max(
+          existingLog.playtimeHours ?? 0,
+          playtimeHours
+        );
+
+        // Upgrade status if synced game has playtime
+        let updatedStatus = existingLog.status;
+        if (
+          (existingLog.status === 'BACKLOG' || existingLog.status === 'WANT TO PLAY') &&
+          playtimeHours > 0
+        ) {
+          updatedStatus = 'PLAYED';
+        }
+
         const updatedLog = await prisma.gameLog.update({
           where: { id: existingLog.id },
           data: {
-            gameTitle,
-            coverUrl: coverUrl || undefined,
-            playtimeHours,
-            status,
-            isOwned,
-            igdbId: safeIgdbId,
-            steamAppId: safeSteamAppId,
             psnTitleIds: updatedPsnTitleIds,
+            playtimeHours: updatedPlaytime,
+            status: updatedStatus,
+            coverUrl: existingLog.coverUrl || coverUrl || undefined,
+            igdbId: existingLog.igdbId ?? safeIgdbId,
+            steamAppId: existingLog.steamAppId ?? safeSteamAppId,
           },
         });
 
@@ -303,16 +348,29 @@ export async function syncPsnAccount(npssoToken: string) {
         currentPsnTitleIds = [psnTitleId];
       }
 
-      // 6. Update local map for subsequent loop iterations
+      // 7. Update local lookup maps so subsequent loop iterations match this entry
       const updatedFormattedLog = {
         id: currentLogId,
-        steamAppId: safeSteamAppId,
-        igdbId: safeIgdbId,
+        gameTitle,
+        steamAppId: existingLog?.steamAppId ?? safeSteamAppId,
+        igdbId: existingLog?.igdbId ?? safeIgdbId,
         psnTitleIds: currentPsnTitleIds,
+        playtimeHours: Math.max(existingLog?.playtimeHours ?? 0, playtimeHours),
+        status: existingLog ? existingLog.status : status,
+        coverUrl: existingLog?.coverUrl || coverUrl,
       };
 
       for (const id of currentPsnTitleIds) {
         psnToLogMap.set(id, updatedFormattedLog);
+      }
+      if (updatedFormattedLog.igdbId !== null) {
+        igdbToLogMap.set(updatedFormattedLog.igdbId, updatedFormattedLog);
+      }
+      if (updatedFormattedLog.steamAppId !== null) {
+        steamToLogMap.set(updatedFormattedLog.steamAppId, updatedFormattedLog);
+      }
+      if (gameTitle) {
+        titleToLogMap.set(gameTitle.trim().toLowerCase(), updatedFormattedLog);
       }
 
       syncedCount++;
