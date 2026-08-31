@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { logGame } from '@/app/actions/logGame';
+import { logGame, deleteGameLog } from '@/app/actions/logGame';
 import StarRating from '@/components/StarRating';
 
 const AVAILABLE_PLATFORMS = [
@@ -63,6 +63,7 @@ export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
 
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Initialize state with initialLog defaults
@@ -143,6 +144,27 @@ export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
       onClose();
     } else {
       setErrorMsg(res.error || 'Failed to save log');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Are you sure you want to remove your log for "${game.name}"?`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setErrorMsg(null);
+
+    const numericGameId = Number(game.id);
+    const res = await deleteGameLog(numericGameId);
+
+    setIsDeleting(false);
+
+    if (res.success) {
+      router.refresh();
+      onClose();
+    } else {
+      setErrorMsg(res.error || 'Failed to delete log');
     }
   };
 
@@ -279,22 +301,37 @@ export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
             </label>
           </div>
 
-          {/* Actions */}
-          <div className="flex justify-end gap-2 pt-2 border-t border-slate-800/80">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs text-slate-400 hover:text-white transition"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-5 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-medium text-xs rounded-lg transition"
-            >
-              {loading ? 'Saving...' : 'Save Log'}
-            </button>
+          {/* Actions Bar */}
+          <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
+            <div>
+              {initialLog && (
+                <button
+                  type="button"
+                  disabled={isDeleting || loading}
+                  onClick={handleDelete}
+                  className="px-3 py-2 text-xs font-semibold text-rose-400 hover:text-rose-300 bg-rose-950/30 hover:bg-rose-950/60 border border-rose-900/50 rounded-lg transition disabled:opacity-50"
+                >
+                  {isDeleting ? 'Deleting...' : 'Delete Log'}
+                </button>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-xs text-slate-400 hover:text-white transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading || isDeleting}
+                className="px-5 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-medium text-xs rounded-lg transition"
+              >
+                {loading ? 'Saving...' : 'Save Log'}
+              </button>
+            </div>
           </div>
         </form>
       </div>

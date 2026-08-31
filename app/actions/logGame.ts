@@ -17,6 +17,33 @@ interface LogInput {
   platforms?: string[];
 }
 
+export async function deleteGameLog(gameId: number) {
+  const session = await auth();
+  if (!session?.user?.email) return { success: false, error: 'Unauthorized' };
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+
+    if (!user) return { success: false, error: 'User not found' };
+
+    await prisma.gameLog.deleteMany({
+      where: {
+        userId: user.id,
+        igdbId: gameId,
+      },
+    });
+
+    revalidatePath(`/game/${gameId}`);
+    revalidatePath('/profile');
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting game log:', error);
+    return { success: false, error: 'Failed to delete game log' };
+  }
+}
+
 export async function logGame(input: LogInput) {
   try {
     // Verify authenticated session
