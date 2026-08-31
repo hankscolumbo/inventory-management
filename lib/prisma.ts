@@ -14,7 +14,7 @@ export const prisma =
     adapter,
     //log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] :['error'],
     // only log errors and warnings, hiding SQL queries and info messages:
-    log: ['error', 'warn'],
+    log: ['query', 'info', 'error', 'warn'],
   });
 
 if (process.env.NODE_ENV !== 'production') {

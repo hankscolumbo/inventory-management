@@ -309,6 +309,7 @@ export async function syncSteamBacklog() {
               igdbId: safeIgdbId,
               platforms: ['STEAM'],
               playedOn: null,
+              psnTitleIds: [],
             },
           });
 

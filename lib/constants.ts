@@ -1,21 +1,25 @@
 // lib/constants.ts
 export const SUBSTATUS_OPTIONS: Record<string, string[]> = {
   'PLAYED': [
-    '100%',
-    'FINISHED',
+    'COMPLETIONIST',
+    'FINISHED STORY',
     'DNF',
     'ON PAUSE',
-    'NOT FOR ME'
+    'NOT FOR ME',
+    'DONT REMEMBER PLAYING'
   ],
   'PLAYING': [
-    'PRIMARY',
+    'MAIN GAME',
     'CONTINUOUS',
     'HANDHELD ONLY',
     'SECOND SCREEN',
+    'ON PAUSE'
   ],
   'WANT TO PLAY': [
+    'WISHLIST',
+    'ON THE FENCE',
     'BACKLOG',
     'BUNDLE FODDER',
-    'I DONT REMEMBER BUYING THIS',
+    'DONT REMEMBER BUYING THIS',
   ],
 };

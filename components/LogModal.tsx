@@ -14,18 +14,18 @@ const AVAILABLE_PLATFORMS = [
   'Playstation 5',
   'Playstation Portal',
   'Playstation 4',
-  'Playstation 3',
-  'Playstation 2',
-  'Playstation',
+  //'Playstation 3',
+  //'Playstation 2',
+  //'Playstation',
   'Xbox Series X/S',
-  'Xbox One',
-  'Xbox 360',
-  'XBOX',
+  //'Xbox One',
+  //'Xbox 360',
+  //'XBOX',
   'Nintendo Switch 2',
   'Nintendo Switch',
-  'Wii U',
-  'Wii',
-  'N64',
+  //'Wii U',
+  //'Wii',
+  //'N64',
   //'Super Nintendo / Famicom',
   //'Nintendo Entertainment System',
   'Nintendo 2DS / 3DS',
@@ -239,7 +239,7 @@ export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
             {currentSubstatusOptions.length > 0 && (
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
-                  Substatus (Optional)
+                  Substatus
                 </label>
                 <div className="flex flex-wrap gap-1.5">
                   {currentSubstatusOptions.map((sub) => {
@@ -321,7 +321,7 @@ export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
           {/* Review Textarea */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
-              Review (Optional)
+              Review
             </label>
             <textarea
               placeholder="What did you think of this game?"
