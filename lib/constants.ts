@@ -5,6 +5,7 @@ export const SUBSTATUS_OPTIONS: Record<string, string[]> = {
     'FINISHED',
     'DNF',
     'ON PAUSE',
+    'NOT FOR ME'
   ],
   'PLAYING': [
     'PRIMARY',
