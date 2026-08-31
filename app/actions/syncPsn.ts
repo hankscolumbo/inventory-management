@@ -104,7 +104,7 @@ async function fetchExternalGameIds(title: string): Promise<{ igdbId?: number; s
   return result;
 }
 
-function parseIsoDurationToHours(duration?: string| number): number {
+function parseIsoDurationToHours(duration?: string | number): number {
   if (!duration) return 0;
 
   if (typeof duration === 'number') {
@@ -119,7 +119,7 @@ function parseIsoDurationToHours(duration?: string| number): number {
   const hours = hoursMatch && hoursMatch[1] ? parseInt(hoursMatch[1], 10) : 0;
   const minutes = minutesMatch && minutesMatch[1] ? parseInt(minutesMatch[1], 10) : 0;
 
-  const totalHours = (days * 24) + hours + (minutes / 60);
+  const totalHours = days * 24 + hours + minutes / 60;
   return Number(totalHours.toFixed(1));
 }
 
@@ -176,26 +176,32 @@ export async function syncPsnAccount(npssoToken: string) {
       data: { psnNpsso: cleanToken },
     });
 
-    // 1. Load all existing games into memory
+    // 1. Load all existing games into memory selecting psnTitleIds array
     const existingLogs = await prisma.gameLog.findMany({
       where: { userId: dbUser.id },
-      select: { id: true, psnTitleId: true, steamAppId: true, igdbId: true },
+      select: { id: true, psnTitleIds: true, steamAppId: true, igdbId: true },
     });
 
-    const psnToLogMap = new Map<string, { id: string; steamAppId: number | null; igdbId: number | null }>();
+    const psnToLogMap = new Map<
+      string,
+      { id: string; steamAppId: number | null; igdbId: number | null; psnTitleIds: string[] }
+    >();
     const takenSteamAppIds = new Set<number>();
     const takenIgdbIds = new Set<number>();
 
-    // 2. Populate tracking sets with explicit Number casting
+    // 2. Map every PSN ID in the psnTitleIds array to its log record
     for (const log of existingLogs) {
       const formattedLog = {
         id: log.id,
         steamAppId: log.steamAppId !== null ? Number(log.steamAppId) : null,
         igdbId: log.igdbId !== null ? Number(log.igdbId) : null,
+        psnTitleIds: log.psnTitleIds || [],
       };
 
-      if (log.psnTitleId) {
-        psnToLogMap.set(log.psnTitleId, formattedLog);
+      if (log.psnTitleIds && log.psnTitleIds.length > 0) {
+        for (const id of log.psnTitleIds) {
+          psnToLogMap.set(id, formattedLog);
+        }
       }
       if (formattedLog.steamAppId !== null) {
         takenSteamAppIds.add(formattedLog.steamAppId);
@@ -252,42 +258,62 @@ export async function syncPsnAccount(npssoToken: string) {
         }
       }
 
-      const upsertedLog = await prisma.gameLog.upsert({
-        where: {
-          userId_psnTitleId: {
-            userId: dbUser.id,
-            psnTitleId,
-          },
-        },
-        update: {
-          gameTitle,
-          coverUrl: coverUrl || undefined,
-          playtimeHours,
-          status,
-          isOwned,
-          igdbId: safeIgdbId,
-          steamAppId: safeSteamAppId,
-        },
-        create: {
-          userId: dbUser.id,
-          psnTitleId,
-          gameTitle,
-          coverUrl,
-          playtimeHours,
-          status,
-          isOwned,
-          igdbId: safeIgdbId,
-          steamAppId: safeSteamAppId,
-          platforms: [category.replace('_game', '').toUpperCase() || 'PLAYSTATION'],
-        },
-      });
+      let currentLogId: string;
+      let currentPsnTitleIds: string[];
 
-      // 5. Update local map for sub-sequent loop iterations
-      psnToLogMap.set(psnTitleId, {
-        id: upsertedLog.id,
+      // 5. Update if log exists with this PSN ID; otherwise create new record
+      if (existingLog) {
+        const updatedPsnTitleIds = Array.from(
+          new Set([...(existingLog.psnTitleIds || []), psnTitleId])
+        );
+
+        const updatedLog = await prisma.gameLog.update({
+          where: { id: existingLog.id },
+          data: {
+            gameTitle,
+            coverUrl: coverUrl || undefined,
+            playtimeHours,
+            status,
+            isOwned,
+            igdbId: safeIgdbId,
+            steamAppId: safeSteamAppId,
+            psnTitleIds: updatedPsnTitleIds,
+          },
+        });
+
+        currentLogId = updatedLog.id;
+        currentPsnTitleIds = updatedPsnTitleIds;
+      } else {
+        const createdLog = await prisma.gameLog.create({
+          data: {
+            userId: dbUser.id,
+            psnTitleIds: [psnTitleId],
+            gameTitle,
+            coverUrl,
+            playtimeHours,
+            status,
+            isOwned,
+            igdbId: safeIgdbId,
+            steamAppId: safeSteamAppId,
+            platforms: [category.replace('_game', '').toUpperCase() || 'PLAYSTATION'],
+          },
+        });
+
+        currentLogId = createdLog.id;
+        currentPsnTitleIds = [psnTitleId];
+      }
+
+      // 6. Update local map for subsequent loop iterations
+      const updatedFormattedLog = {
+        id: currentLogId,
         steamAppId: safeSteamAppId,
         igdbId: safeIgdbId,
-      });
+        psnTitleIds: currentPsnTitleIds,
+      };
+
+      for (const id of currentPsnTitleIds) {
+        psnToLogMap.set(id, updatedFormattedLog);
+      }
 
       syncedCount++;
     }
@@ -304,4 +330,3 @@ export async function syncPsnAccount(npssoToken: string) {
     };
   }
 }
-

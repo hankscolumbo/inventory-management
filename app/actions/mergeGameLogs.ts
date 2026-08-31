@@ -5,6 +5,24 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
+// Status hierarchy ranking (higher number = higher priority)
+const STATUS_PRIORITY: Record<string, number> = {
+  COMPLETED: 6,
+  PLAYED: 5,
+  PLAYING: 4,
+  'ON HOLD': 3,
+  ON_HOLD: 3,
+  DROPPED: 2,
+  BACKLOG: 1,
+  'WANT TO PLAY': 0,
+  WANT_TO_PLAY: 0,
+};
+
+const getStatusScore = (status?: string | null): number => {
+  if (!status) return -1;
+  return STATUS_PRIORITY[status] ?? 0;
+};
+
 export async function mergeGameLogs(primaryLogId: string, secondaryLogId: string) {
   const session = await auth();
   if (!session?.user?.email) {
@@ -42,13 +60,17 @@ export async function mergeGameLogs(primaryLogId: string, secondaryLogId: string
       new Set([...primaryLog.platforms, ...secondaryLog.platforms])
     );
 
-    // 3. Resolve status
-    const mergedStatus =
-      primaryLog.status === 'PLAYED' || secondaryLog.status === 'PLAYED'
-        ? 'PLAYED'
-        : primaryLog.status;
+    // 3. Merge PSN Title IDs array (deduplicated)
+    const mergedPsnTitleIds = Array.from(
+      new Set([...primaryLog.psnTitleIds, ...secondaryLog.psnTitleIds])
+    );
 
-    // 4. Resolve playedOn date
+    // 4. Resolve status by priority (PLAYED > PLAYING > BACKLOG > WANT TO PLAY)
+    const primaryScore = getStatusScore(primaryLog.status);
+    const secondaryScore = getStatusScore(secondaryLog.status);
+    const mergedStatus = primaryScore >= secondaryScore ? primaryLog.status : secondaryLog.status;
+
+    // 5. Resolve playedOn date
     let mergedPlayedOn = primaryLog.playedOn;
     if (secondaryLog.playedOn) {
       if (!mergedPlayedOn || new Date(secondaryLog.playedOn) > new Date(mergedPlayedOn)) {
@@ -56,7 +78,7 @@ export async function mergeGameLogs(primaryLogId: string, secondaryLogId: string
       }
     }
 
-    // 5. DELETE SECONDARY FIRST to release unique constraints (steamAppId, igdbId, psnTitleId)
+    // 6. Delete secondary log first, then update primary log with merged data
     await prisma.$transaction([
       prisma.gameLog.delete({
         where: { id: secondaryLog.id },
@@ -66,10 +88,10 @@ export async function mergeGameLogs(primaryLogId: string, secondaryLogId: string
         data: {
           playtimeHours: mergedPlaytimeHours,
           platforms: mergedPlatforms,
+          psnTitleIds: mergedPsnTitleIds,
           status: mergedStatus,
           playedOn: mergedPlayedOn,
           isOwned: primaryLog.isOwned || secondaryLog.isOwned,
-          psnTitleId: primaryLog.psnTitleId || secondaryLog.psnTitleId,
           steamAppId: primaryLog.steamAppId ?? secondaryLog.steamAppId,
           igdbId: primaryLog.igdbId ?? secondaryLog.igdbId,
           coverUrl: primaryLog.coverUrl || secondaryLog.coverUrl,
@@ -88,3 +110,5 @@ export async function mergeGameLogs(primaryLogId: string, secondaryLogId: string
     return { success: false, error: 'Database error occurred during merge.' };
   }
 }
+
+

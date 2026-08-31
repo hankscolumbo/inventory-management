@@ -73,7 +73,8 @@ model GameLog {
 
   steamAppId      Int?                        // Steam AppID (from Steam API)
   igdbId          Int?                        // IGDB Game Id (from search or resolved during sync)
-  psnTitleId      String?
+  psnTitleId      String?                     // temporarily keep psn id  
+  psnTitleIds     String[]                    // array of psn ids
 
   gameTitle       String                      // cached title for easy display
   coverUrl        String?                     // Cached cover image coverUrl
@@ -90,7 +91,6 @@ model GameLog {
 
   @@unique([userId, steamAppId])
   @@unique([userId, igdbId])
-  @@unique([userId, psnTitleId])
 }
 
 model CustomList {
