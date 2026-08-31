@@ -69,6 +69,7 @@ export async function mergeGameLogs(primaryLogId: string, secondaryLogId: string
     const primaryScore = getStatusScore(primaryLog.status);
     const secondaryScore = getStatusScore(secondaryLog.status);
     const mergedStatus = primaryScore >= secondaryScore ? primaryLog.status : secondaryLog.status;
+    const mergedSubstatus = primaryScore >= secondaryScore ? primaryLog.substatus : secondaryLog.substatus;
 
     // 5. Resolve playedOn date
     let mergedPlayedOn = primaryLog.playedOn;
@@ -90,6 +91,7 @@ export async function mergeGameLogs(primaryLogId: string, secondaryLogId: string
           platforms: mergedPlatforms,
           psnTitleIds: mergedPsnTitleIds,
           status: mergedStatus,
+          substatus: mergedSubstatus,
           playedOn: mergedPlayedOn,
           isOwned: primaryLog.isOwned || secondaryLog.isOwned,
           steamAppId: primaryLog.steamAppId ?? secondaryLog.steamAppId,

@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { logGame, deleteGameLog } from '@/app/actions/logGame';
 import StarRating from '@/components/StarRating';
+import { SUBSTATUS_OPTIONS } from '@/lib/constants';
 
 const AVAILABLE_PLATFORMS = [
   'PC',
@@ -25,17 +26,17 @@ const AVAILABLE_PLATFORMS = [
   'Wii U',
   'Wii',
   'N64',
-  'Super Nintendo / Famicom',
-  'Nintendo Entertainment System',
+  //'Super Nintendo / Famicom',
+  //'Nintendo Entertainment System',
   'Nintendo 2DS / 3DS',
   'Nintendo DS / DSi',
-  'Playstation Vita',
-  'PSP',
-  'Sega Genesis',
-  'Game Gear',
+  //'Playstation Vita',
+  //'PSP',
+  //'Sega Genesis',
+  //'Game Gear',
   'VR',
   'Mobile',
-  'Analogue Pocket',
+  //'Analogue Pocket',
   'Playdate',
 ];
 
@@ -48,7 +49,9 @@ interface LogModalProps {
     isSteamApp?: boolean;
   };
   initialLog?: {
+    id?: string,
     status?: 'PLAYED' | 'PLAYING' | 'WANT TO PLAY';
+    substatus?: string | null;
     rating?: number | null;
     playtimeHours?: number | null;
     platforms?: string[];
@@ -59,6 +62,8 @@ interface LogModalProps {
 }
 
 export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
+  console.log('[LogModal DEBUG] initialLog:', initialLog);
+
   if (!game) return null;
 
   const [mounted, setMounted] = useState(false);
@@ -70,8 +75,9 @@ export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
   const [rating, setRating] = useState<number | ''>(initialLog?.rating ?? '');
   const [review, setReview] = useState<string>(initialLog?.review ?? '');
   const [status, setStatus] = useState<'PLAYED' | 'PLAYING' | 'WANT TO PLAY'>(
-    initialLog?.status || 'PLAYED'
+    initialLog?.status as any || 'PLAYED'
   );
+  const [substatus, setSubstatus] = useState<string | null>(initialLog?.substatus || null);
   const [isOwned, setIsOwned] = useState<boolean>(
     initialLog?.isOwned ?? (initialLog?.status ? initialLog.status !== 'WANT TO PLAY' : true)
   );
@@ -93,7 +99,10 @@ export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
     if (initialLog) {
       setRating(initialLog.rating ?? '');
       setReview(initialLog.review ?? '');
-      if (initialLog.status) setStatus(initialLog.status);
+      if (initialLog.status) {
+        setStatus(initialLog.status as any);
+      }
+      setSubstatus(initialLog.substatus ?? null);
       setIsOwned(
         initialLog.isOwned ?? (initialLog.status ? initialLog.status !== 'WANT TO PLAY' : true)
       );
@@ -102,8 +111,17 @@ export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
     }
   }, [initialLog]);
 
+  const normalizedStatusKey = (status || '').toUpperCase().trim();
+  const currentSubstatusOptions = SUBSTATUS_OPTIONS[normalizedStatusKey] || SUBSTATUS_OPTIONS[status] || [];
+
   const handleStatusChange = (selectedStatus: 'PLAYED' | 'PLAYING' | 'WANT TO PLAY') => {
     setStatus(selectedStatus);
+    const validSubstatuses = SUBSTATUS_OPTIONS[selectedStatus] || [];
+
+    if (substatus && !validSubstatuses.includes(substatus)) {
+      setSubstatus(null);
+    }
+
     if (selectedStatus === 'WANT TO PLAY') {
       setIsOwned(false);
     } else {
@@ -125,10 +143,12 @@ export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
     const numericGameId = Number(game.id);
 
     const res = await logGame({
+      logId: initialLog?.id,
       gameId: numericGameId,
       gameTitle: game.name,
       coverUrl: game.coverUrl,
       status,
+      substatus,
       rating: rating !== '' ? Number(rating) : null,
       review,
       isOwned,
@@ -192,27 +212,55 @@ export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Status Selector */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
-              Status
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {(['PLAYED', 'PLAYING', 'WANT TO PLAY'] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => handleStatusChange(s)}
-                  className={`py-2 rounded-lg text-xs font-medium border transition ${
-                    status === s
-                      ? 'bg-purple-600/20 border-purple-500 text-purple-300'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
+          <div className="space-y-3">
+            {/* Primary Status Selector */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
+                Status
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['PLAYED', 'PLAYING', 'WANT TO PLAY'] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => handleStatusChange(s)}
+                    className={`py-2 rounded-lg text-xs font-medium border transition ${status === s
+                        ? 'bg-purple-600/20 border-purple-500 text-purple-300'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                      }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Dependent Substatus Selector */}
+            {currentSubstatusOptions.length > 0 && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
+                  Substatus (Optional)
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {currentSubstatusOptions.map((sub) => {
+                    const isSelected = substatus?.trim().toUpperCase() === sub.trim().toUpperCase();
+                    return (
+                      <button
+                        key={sub}
+                        type="button"
+                        onClick={() => setSubstatus(isSelected ? null : sub)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition ${isSelected
+                            ? 'bg-purple-600 border-purple-500 text-white'
+                            : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                          }`}
+                      >
+                        {isSelected ? `✓ ${sub}` : sub}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Rating & Playtime Hours */}
@@ -258,11 +306,10 @@ export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
                     key={platform}
                     type="button"
                     onClick={() => togglePlatform(platform)}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition border ${
-                      isSelected
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition border ${isSelected
                         ? 'bg-purple-600 border-purple-500 text-white shadow-sm'
                         : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
-                    }`}
+                      }`}
                   >
                     {isSelected ? `✓ ${platform}` : `+ ${platform}`}
                   </button>

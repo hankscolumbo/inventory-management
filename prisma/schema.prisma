@@ -83,6 +83,7 @@ model GameLog {
   rating          Float?                      // e.g., 4.5 out of 5
   review          String?   @db.Text
   status          String                      // PLAYED, PLAYING, BACKLOG, etc.
+  substatus       String?
   playedOn        DateTime?  
   platforms       String[]                    // Multi-select platform tags stores as string array
 

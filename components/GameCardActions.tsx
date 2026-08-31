@@ -4,12 +4,21 @@
 import { useState } from 'react';
 import LogModal from './LogModal';
 import AddToListModal from './AddToListModal';
+import MergeModal from './MergeModal';
 
 interface GameItem {
+  id?: string;
   gameTitle: string;
   coverUrl?: string | null;
   igdbId?: number | null;
   steamAppId?: number | null;
+  status?: string;
+  substatus?: string | null;
+  rating?: number | null;
+  review?: string | null;
+  playtimeHours?: number | null;
+  platforms?: string[];
+  isOwned?: boolean;
 }
 
 interface GameCardActionsProps {
@@ -19,8 +28,8 @@ interface GameCardActionsProps {
 
 export default function GameCardActions({ item, userLists = [] }: GameCardActionsProps) {
   const [showLogModal, setShowLogModal] = useState(false);
+  const [showMergeModal, setShowMergeModal] = useState(false);
 
-  // Format item to match LogModal's expected game object structure
   const logModalGame = {
     id: item.igdbId || item.steamAppId || 0,
     name: item.gameTitle,
@@ -28,7 +37,6 @@ export default function GameCardActions({ item, userLists = [] }: GameCardAction
     isSteamApp: Boolean(!item.igdbId && item.steamAppId),
   };
 
-  // Format item to match AddToListModal's expected game object structure
   const addToListGame = {
     name: item.gameTitle,
     coverUrl: item.coverUrl,
@@ -36,35 +44,73 @@ export default function GameCardActions({ item, userLists = [] }: GameCardAction
     steamAppId: item.steamAppId,
   };
 
+  const hasExistingLog = Boolean(item.id || item.status);
+
   return (
     <>
-      <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-slate-800/80 mt-2">
-        {/* Trigger for LogModal */}
-        <button
-          type="button"
-          onClick={() => setShowLogModal(true)}
-          className="px-2 py-1 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 text-[10px] font-bold rounded-md border border-purple-500/30 transition flex items-center justify-center gap-1"
-        >
-          <span>+ Log</span>
-        </button>
-
-        {/* Trigger for AddToListModal using customTrigger */}
+      <div className={`grid ${item.id ? 'grid-cols-3' : 'grid-cols-2'} gap-1.5`}>
+        {/* 1. Left: List Button */}
         <AddToListModal
           game={addToListGame}
           userLists={userLists}
           customTrigger={
-            <div className="w-full px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold rounded-md border border-slate-700 transition flex items-center justify-center gap-1">
-              <span>+ List</span>
+            <div className="w-full py-1.5 bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-300 text-[10px] font-bold rounded-md border border-cyan-500/30 transition flex items-center justify-center gap-1">
+              <span>📋 LIST</span>
             </div>
           }
         />
+
+        {/* 2. Middle: Merge Button (Renders when log exists in DB) */}
+        {item.id && (
+          <button
+            type="button"
+            onClick={() => setShowMergeModal(true)}
+            className="w-full py-1.5 bg-fuchsia-500/20 hover:bg-fuchsia-500/40 text-fuchsia-300 text-[10px] font-bold rounded-md border border-fuchsia-400/40 transition flex items-center justify-center gap-1"
+            title="Merge duplicate log"
+          >
+            <span>MERGE</span>
+          </button>
+        )}
+
+        {/* 3. Right: Log Button */}
+        <button
+          type="button"
+          onClick={() => setShowLogModal(true)}
+          className="w-full py-1.5 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 text-[10px] font-bold rounded-md border border-purple-500/30 transition flex items-center justify-center gap-1"
+        >
+          <span>{hasExistingLog ? '✏️ LOG' : '➕ LOG'}</span>
+        </button>
       </div>
 
-      {/* Render LogModal conditionally */}
       {showLogModal && (
         <LogModal
           game={logModalGame}
+          initialLog={
+            hasExistingLog
+              ? {
+                  id: item.id,
+                  status: item.status as any,
+                  substatus: item.substatus,
+                  rating: item.rating,
+                  review: item.review,
+                  playtimeHours: item.playtimeHours,
+                  platforms: item.platforms,
+                  isOwned: item.isOwned,
+                }
+              : undefined
+          }
           onClose={() => setShowLogModal(false)}
+        />
+      )}
+
+      {showMergeModal && item.id && (
+        <MergeModal
+          currentLog={{
+            id: item.id,
+            gameTitle: item.gameTitle,
+            coverUrl: item.coverUrl,
+          }}
+          onClose={() => setShowMergeModal(false)}
         />
       )}
     </>

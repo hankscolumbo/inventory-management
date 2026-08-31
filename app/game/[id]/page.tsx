@@ -268,6 +268,16 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
             userId: user.id,
             OR: conditions,
           },
+          select: {
+            id: true,
+            status: true,
+            substatus: true,
+            rating: true,
+            review: true,
+            playtimeHours: true,
+            platforms: true,
+            isOwned: true,
+          }
         });
       }
     }
@@ -429,6 +439,7 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
                 platforms: existingLog.platforms || [],
                 isOwned: existingLog.isOwned,
                 review: (existingLog as any).review || '',
+                substatus: existingLog.substatus || null,
               }
               : undefined
           }
