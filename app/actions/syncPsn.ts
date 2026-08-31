@@ -246,7 +246,7 @@ export async function syncPsnAccount(npssoToken: string) {
       const gameTitle = game.name;
       const coverUrl = game.imageUrl;
       const playtimeHours = parseIsoDurationToHours(game.playDuration);
-      const status = playtimeHours > 0 ? 'PLAYED' : 'BACKLOG';
+      const status = playtimeHours > 0 ? 'PLAYED' : 'WANT TO PLAY';
       const service = (game.service || game.titleService || '').toLowerCase();
       const isOwned = service !== 'ps_plus';
 
@@ -308,7 +308,7 @@ export async function syncPsnAccount(npssoToken: string) {
         // Upgrade status if synced game has playtime
         let updatedStatus = existingLog.status;
         if (
-          (existingLog.status === 'BACKLOG' || existingLog.status === 'WANT TO PLAY') &&
+          (existingLog.status === 'WANT TO PLAY') &&
           playtimeHours > 0
         ) {
           updatedStatus = 'PLAYED';

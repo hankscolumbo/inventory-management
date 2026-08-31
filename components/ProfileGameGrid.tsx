@@ -45,7 +45,7 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
   const STATUS_STYLES: Record<string, string> = {
     'PLAYED': 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40',
     'PLAYING': 'bg-cyan-950/90 text-cyan-300 border-cyan-500/40',
-    'BACKLOG': 'bg-amber-950/90 text-amber-300 border-amber-500/40',
+    //'BACKLOG': 'bg-amber-950/90 text-amber-300 border-amber-500/40',
     'WANT TO PLAY': 'bg-indigo-950/90 text-indigo-300 border-indigo-500/40',
   };
 
@@ -80,7 +80,7 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
       <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center bg-slate-900 p-4 rounded-2xl border border-slate-800">
         {/* Status Filter Tabs */}
         <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800/80 overflow-x-auto">
-          {(['ALL', 'PLAYED', 'PLAYING', 'WANT TO PLAY', 'BACKLOG'] as const).map((tab) => (
+          {(['ALL', 'PLAYED', 'PLAYING', 'WANT TO PLAY'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => {

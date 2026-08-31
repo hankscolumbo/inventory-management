@@ -7,14 +7,8 @@ import { revalidatePath } from 'next/cache';
 
 // Status hierarchy ranking (higher number = higher priority)
 const STATUS_PRIORITY: Record<string, number> = {
-  COMPLETED: 6,
-  PLAYED: 5,
-  PLAYING: 4,
-  'ON HOLD': 3,
-  ON_HOLD: 3,
-  DROPPED: 2,
-  BACKLOG: 1,
-  'WANT TO PLAY': 0,
+  PLAYING: 2,
+  PLAYED: 1,
   WANT_TO_PLAY: 0,
 };
 
@@ -65,7 +59,7 @@ export async function mergeGameLogs(primaryLogId: string, secondaryLogId: string
       new Set([...primaryLog.psnTitleIds, ...secondaryLog.psnTitleIds])
     );
 
-    // 4. Resolve status by priority (PLAYED > PLAYING > BACKLOG > WANT TO PLAY)
+    // 4. Resolve status by priority (PLAYING > PLAYED > WANT TO PLAY)
     const primaryScore = getStatusScore(primaryLog.status);
     const secondaryScore = getStatusScore(secondaryLog.status);
     const mergedStatus = primaryScore >= secondaryScore ? primaryLog.status : secondaryLog.status;
