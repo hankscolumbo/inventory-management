@@ -335,6 +335,7 @@ export async function syncSteamWishlist() {
             coverUrl,
             steamAppId: appId,
             status: 'WANT TO PLAY',
+            substatus: 'WISHLIST',
             isOwned: false,
             playedOn: null,
           },
@@ -347,9 +348,11 @@ export async function syncSteamWishlist() {
             gameTitle,
             coverUrl,
             status: 'WANT TO PLAY',
+            substatus: 'WISHLIST',
             isOwned: false,
             igdbId: resolvedIgdbId,
             playedOn: null,
+            psnTitleIds: [],
           },
         });
       }

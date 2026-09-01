@@ -214,7 +214,7 @@ export default function SteamSyncModal({ steamId, isOwner }: SteamSyncModalProps
               <span className="text-xs font-bold text-pink-400 uppercase tracking-wider block">Option 2</span>
               <h3 className="text-sm font-bold text-white mt-1">Sync Wishlist</h3>
               <p className="text-xs text-slate-400 mt-1">
-                Imports public Steam wishlist games and sets status to <span className="text-slate-200">WANT TO PLAY</span>.
+                Imports public Steam wishlist games and sets status to <span className="text-slate-200">WANT TO PLAY</span> and substatus to <span className="text-slate-200">WISHLIST</span>.
               </p>
             </div>
             <button
@@ -233,7 +233,7 @@ export default function SteamSyncModal({ steamId, isOwner }: SteamSyncModalProps
             <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider block">Option 3</span>
             <h3 className="text-sm font-bold text-white mt-1">Sync Backlog</h3>
             <p className="text-xs text-slate-400 mt-1">
-              Check Steam library for unplayed games and adds them to your <span className="text-slate-200">BACKLOG</span>
+              Check Steam library for unplayed games and sets status to <span className="text-slate-200">WANT TO PLAY</span> and substatus to <span className="text-slate-200">BACKLOG</span>.
             </p>
           </div>
           <button
