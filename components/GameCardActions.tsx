@@ -27,6 +27,7 @@ interface GameCardActionsProps {
 }
 
 export default function GameCardActions({ item, userLists = [] }: GameCardActionsProps) {
+  
   const [showLogModal, setShowLogModal] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
 

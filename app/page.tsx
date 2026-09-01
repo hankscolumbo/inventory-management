@@ -38,7 +38,7 @@ export default async function HomePage() {
     steamAppId: g.steamAppId,
     gameTitle: g.gameTitle,
     coverUrl: g.coverUrl,
-    badgeText: `${g._count.userId} players`,
+    badgeText: `${g._count.userId}`,
     badgeStyle: 'bg-emerald-950/90 text-emerald-300 border border-emerald-500/40',
   }));
 
@@ -47,8 +47,8 @@ export default async function HomePage() {
     steamAppId: g.steamAppId,
     gameTitle: g.gameTitle,
     coverUrl: g.coverUrl,
-    badgeText: `${g._count.userId} wanted`,
-    badgeStyle: 'bg-amber-950/90 text-amber-300 border border-amber-500/40',
+    badgeText: `${g._count.userId}`,
+    badgeStyle: 'bg-cyan-950/90 text-cyan-300 border border-cyan-500/40',
   }));
 
   const newlyReleasedItems: GridItem[] = newlyReleased.map((g) => ({
@@ -139,7 +139,7 @@ export default async function HomePage() {
       {/* 3. Most Wanted Games */}
       <HomeSectionGrid
         title="Most Wanted Games"
-        subtitle="Top games in user backlogs"
+        subtitle="Top games in user wishlists and backlogs"
         accentColor="border-amber-500/40"
         items={mostWantedItems}
         itemsPerPage={6}
