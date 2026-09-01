@@ -28,6 +28,70 @@ function sanitizeTitle(title: string): string {
     .trim();
 }
 
+/**
+ * Fetches the official store header image directly from Steam's appdetails API.
+ */
+async function fetchSteamStoreHeader(appId: number): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://store.steampowered.com/api/appdetails?appids=${appId}`,
+      { cache: 'no-store' }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const appData = data[String(appId)];
+    if (appData?.success && appData?.data?.header_image) {
+      return appData.data.header_image;
+    }
+  } catch {
+    // API request error fallback
+  }
+  return null;
+}
+
+/**
+ * Resolves a verified cover URL via IGDB -> Steam Vertical Capsule -> Steam Store Details API -> HTTPS Community Icon.
+ */
+async function getVerifiedSteamCoverUrl(
+  appId: number,
+  igdbCoverUrl?: string | null,
+  iconHash?: string | null
+): Promise<string> {
+  // 1. Prefer high-quality IGDB cover if available
+  if (igdbCoverUrl && igdbCoverUrl.trim() !== '') {
+    return igdbCoverUrl;
+  }
+
+  // 2. Test high-res vertical capsule
+  const verticalCapsule = `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${appId}/library_600x900_2x.jpg`;
+  try {
+    const res = await fetch(verticalCapsule, {
+      method: 'GET',
+      headers: { Range: 'bytes=0-100' },
+      cache: 'no-store',
+    });
+    const contentType = res.headers.get('content-type') || '';
+    if ((res.status === 200 || res.status === 206) && contentType.startsWith('image/')) {
+      return verticalCapsule;
+    }
+  } catch {
+    // Fall through if capsule doesn't exist
+  }
+
+  // 3. Query Official Steam Store API for the exact store header asset URL
+  const officialHeader = await fetchSteamStoreHeader(appId);
+  if (officialHeader) {
+    return officialHeader;
+  }
+
+  // 4. Fail-safe: Steam Community App Icon (uses HTTPS to prevent browser mixed content blocks)
+  if (iconHash && iconHash.trim() !== '') {
+    return `https://media.steampowered.com/steamcommunity/public/assets/apps/${appId}/${iconHash}.jpg`;
+  }
+
+  return `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${appId}/header.jpg`;
+}
+
 async function searchIgdbByTitle(
   title: string,
   clientId: string,
@@ -210,10 +274,9 @@ export async function syncSteamBacklog() {
 
     const twitchToken = await getTwitchToken(TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET);
 
-    // Map existing records by steamAppId AND igdbId to handle cross-platform entries cleanly
     const existingLogs = await prisma.gameLog.findMany({
       where: { userId: user.id },
-      select: { id: true, steamAppId: true, igdbId: true },
+      select: { id: true, steamAppId: true, igdbId: true, coverUrl: true },
     });
 
     const steamToLogMap = new Map<number, string>();
@@ -244,6 +307,7 @@ export async function syncSteamBacklog() {
       for (const game of chunk) {
         const appId = Number(game.appid);
         const rawName = game.name ? String(game.name) : `Steam App ${appId}`;
+        const iconHash = game.img_icon_url ? String(game.img_icon_url) : null;
 
         let igdbInfo = igdbDetailsMap[appId];
 
@@ -255,19 +319,13 @@ export async function syncSteamBacklog() {
         }
 
         const gameTitle = igdbInfo?.name || rawName;
-        const coverUrl =
-          igdbInfo?.coverUrl ||
-          `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
-
         const candidateIgdbId = igdbInfo?.igdbId ? Number(igdbInfo.igdbId) : null;
 
-        // Check if an existing log matches steamAppId OR igdbId
         let existingLogId = steamToLogMap.get(appId);
         if (!existingLogId && candidateIgdbId !== null) {
           existingLogId = igdbToLogMap.get(candidateIgdbId);
         }
 
-        // Determine if safe to set igdbId without unique collision
         let safeIgdbId: number | null = null;
         if (candidateIgdbId !== null) {
           const currentOwnerId = igdbToLogMap.get(candidateIgdbId);
@@ -276,12 +334,18 @@ export async function syncSteamBacklog() {
           }
         }
 
+        const verifiedCoverUrl = await getVerifiedSteamCoverUrl(
+          appId,
+          igdbInfo?.coverUrl,
+          iconHash
+        );
+
         if (existingLogId) {
           await prisma.gameLog.update({
             where: { id: existingLogId },
             data: {
               gameTitle,
-              coverUrl,
+              coverUrl: verifiedCoverUrl,
               steamAppId: appId,
               isOwned: true,
               status: 'WANT TO PLAY',
@@ -301,7 +365,7 @@ export async function syncSteamBacklog() {
               userId: user.id,
               steamAppId: appId,
               gameTitle,
-              coverUrl,
+              coverUrl: verifiedCoverUrl,
               playtimeHours: 0,
               status: 'WANT TO PLAY',
               substatus: 'BACKLOG',
@@ -332,3 +396,5 @@ export async function syncSteamBacklog() {
     return { success: false, error: 'Database transaction failed during sync.' };
   }
 }
+
+

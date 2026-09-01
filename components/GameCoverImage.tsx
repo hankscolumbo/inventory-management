@@ -1,7 +1,8 @@
+
 // components/GameCoverImage.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface GameCoverImageProps {
   src?: string | null;
@@ -10,23 +11,41 @@ interface GameCoverImageProps {
   className?: string;
 }
 
-export default function GameCoverImage({ src, alt, steamAppId, className = '' }: GameCoverImageProps) {
+export default function GameCoverImage({
+  src,
+  alt,
+  steamAppId,
+  className = '',
+}: GameCoverImageProps) {
   const [imgSrc, setImgSrc] = useState<string | null>(src || null);
-  const [hasError, setHasError] = useState(false);
+  const [fallbackStage, setFallbackStage] = useState<number>(0);
+
+  useEffect(() => {
+    setImgSrc(src || null);
+    setFallbackStage(0);
+  }, [src, steamAppId]);
 
   const handleError = () => {
-    // If 600x900 poster fails, fall back to Steam header banner
-    if (steamAppId && imgSrc?.includes('library_600x900')) {
-      setImgSrc(`https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/header.jpg`);
+    if (steamAppId && fallbackStage === 0) {
+      // Stage 1: Fall back to Steam Store Header (mandatory on all Steam store entries)
+      setFallbackStage(1);
+      setImgSrc(
+        `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${steamAppId}/header.jpg`
+      );
     } else {
-      setHasError(true);
+      // Stage 2: Fall back to placeholder state if header also fails
+      setFallbackStage(2);
+      setImgSrc(null);
     }
   };
 
-  if (hasError || !imgSrc) {
+  if (!imgSrc || fallbackStage === 2) {
     return (
-      <div className={`bg-slate-800 border border-slate-700 flex items-center justify-center p-2 text-center text-[10px] text-slate-400 font-semibold rounded ${className}`}>
-        {alt}
+      <div
+        className={`w-full h-full flex flex-col items-center justify-center bg-slate-950 text-slate-500 text-[10px] p-2 text-center border border-slate-800 ${className}`}
+      >
+        <span className="text-base mb-1">🎮</span>
+        <span className="line-clamp-2 font-medium">{alt}</span>
       </div>
     );
   }
@@ -36,7 +55,8 @@ export default function GameCoverImage({ src, alt, steamAppId, className = '' }:
       src={imgSrc}
       alt={alt}
       onError={handleError}
-      className={`object-cover ${className}`}
+      className={className}
     />
   );
 }
+
