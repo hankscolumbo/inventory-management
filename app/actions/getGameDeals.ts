@@ -47,11 +47,12 @@ async function getStoreMap(): Promise<Record<string, { storeName: string; icon: 
 }
 
 function cleanTitleForSearch(title: string): string {
-  return title
-    .split(':')[0] // Strip subtitles after colons
-    .split(' - ')[0] // Strip subtitles after dashes
-    .replace(/[™®©]/g, '')
-    .trim();
+  if (!title) return '';
+
+    const beforeColon = title.split(':')[0] ?? title;
+    const beforeDash = beforeColon.split(' - ')[0] ?? beforeColon;
+    
+    return beforeDash.replace(/[™®©]/g, '').trim();
 }
 
 export async function getGameDeals(title: string, steamAppId?: number | null): Promise<DealItem[]> {
