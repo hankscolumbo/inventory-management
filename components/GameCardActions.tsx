@@ -1,10 +1,13 @@
 // components/GameCardActions.tsx
 'use client';
 
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
+import { UserLogItem } from '@/components/HomeSectionGrid';
 import LogModal from './LogModal';
 import AddToListModal from './AddToListModal';
 import MergeModal from './MergeModal';
+
 
 interface GameItem {
   id?: string;
@@ -21,15 +24,32 @@ interface GameItem {
   isOwned?: boolean;
 }
 
+
 interface GameCardActionsProps {
   item: GameItem;
+  initialLog?: UserLogItem | null;
   userLists?: { id: string; title: string }[];
 }
 
-export default function GameCardActions({ item, userLists = [] }: GameCardActionsProps) {
-  
+
+export default function GameCardActions({ item, initialLog = null, userLists = [] }: GameCardActionsProps) {
   const [showLogModal, setShowLogModal] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
+
+
+  const [logState, setLogState] = useState<UserLogItem | null>(initialLog);
+
+
+  // Sync logState when initialLog prop changes asynchronously
+  useEffect(() => {
+    setLogState(initialLog);
+  }, [initialLog]);
+
+
+  // Merge logState and item to derive active log data
+  const activeLog = logState || (item.id || item.status ? item : null);
+  const hasExistingLog = Boolean(activeLog?.id || activeLog?.status);
+
 
   const logModalGame = {
     id: item.igdbId || item.steamAppId || 0,
@@ -38,6 +58,7 @@ export default function GameCardActions({ item, userLists = [] }: GameCardAction
     isSteamApp: Boolean(!item.igdbId && item.steamAppId),
   };
 
+
   const addToListGame = {
     name: item.gameTitle,
     coverUrl: item.coverUrl,
@@ -45,11 +66,10 @@ export default function GameCardActions({ item, userLists = [] }: GameCardAction
     steamAppId: item.steamAppId,
   };
 
-  const hasExistingLog = Boolean(item.id || item.status);
 
   return (
     <>
-      <div className={`grid ${item.id ? 'grid-cols-3' : 'grid-cols-2'} gap-1.5`}>
+      <div className={`grid ${activeLog?.id ? 'grid-cols-3' : 'grid-cols-2'} gap-1.5`}>
         {/* 1. Left: List Button */}
         <AddToListModal
           game={addToListGame}
@@ -61,8 +81,9 @@ export default function GameCardActions({ item, userLists = [] }: GameCardAction
           }
         />
 
+
         {/* 2. Middle: Merge Button (Renders when log exists in DB) */}
-        {item.id && (
+        {activeLog?.id && (
           <button
             type="button"
             onClick={() => setShowMergeModal(true)}
@@ -72,6 +93,7 @@ export default function GameCardActions({ item, userLists = [] }: GameCardAction
             <span>MERGE</span>
           </button>
         )}
+
 
         {/* 3. Right: Log Button */}
         <button
@@ -83,20 +105,22 @@ export default function GameCardActions({ item, userLists = [] }: GameCardAction
         </button>
       </div>
 
+
       {showLogModal && (
         <LogModal
+          key={activeLog?.id || 'new-log'} // Forces LogModal state to re-initialize on open
           game={logModalGame}
           initialLog={
-            hasExistingLog
+            hasExistingLog && activeLog
               ? {
-                  id: item.id,
-                  status: item.status as any,
-                  substatus: item.substatus,
-                  rating: item.rating,
-                  review: item.review,
-                  playtimeHours: item.playtimeHours,
-                  platforms: item.platforms,
-                  isOwned: item.isOwned,
+                  id: activeLog.id,
+                  status: activeLog.status as any,
+                  substatus: activeLog.substatus,
+                  rating: activeLog.rating,
+                  review: activeLog.review,
+                  playtimeHours: activeLog.playtimeHours,
+                  platforms: activeLog.platforms,
+                  isOwned: activeLog.isOwned,
                 }
               : undefined
           }
@@ -104,10 +128,11 @@ export default function GameCardActions({ item, userLists = [] }: GameCardAction
         />
       )}
 
-      {showMergeModal && item.id && (
+
+      {showMergeModal && activeLog?.id && (
         <MergeModal
           currentLog={{
-            id: item.id,
+            id: activeLog.id,
             gameTitle: item.gameTitle,
             coverUrl: item.coverUrl,
           }}

@@ -13,13 +13,34 @@ export default async function HomePage() {
   const userId = session?.user?.id;
   const isLoggedIn = Boolean(session?.user);
 
-  const userLists = userId
-    ? await prisma.customList.findMany({
-        where: { userId },
-        select: { id: true, title: true },
-        orderBy: { updatedAt: 'desc' },
-      })
-    : [];
+  // Fetch custom lists and user's existing game logs when logged in
+  const [userLists, userLogs] = userId
+    ? await Promise.all([
+        prisma.customList.findMany({
+          where: { userId },
+          select: { id: true, title: true },
+          orderBy: { updatedAt: 'desc' },
+        }),
+        prisma.gameLog.findMany({
+          where: { userId },
+          select: {
+            id: true,
+            igdbId: true,
+            steamAppId: true,
+            gameTitle: true,
+            coverUrl: true,
+            status: true,
+            substatus: true,
+            rating: true,
+            review: true,
+            playtimeHours: true,
+            platforms: true,
+            playedOn: true,
+            isOwned: true,
+          },
+        }),
+      ])
+    : [[], []];
 
   const { mostPlayed, mostWanted, activeLogs, newlyReleased, upcoming, communityLists } =
     await getHomePageData();
@@ -38,7 +59,7 @@ export default async function HomePage() {
     steamAppId: g.steamAppId,
     gameTitle: g.gameTitle,
     coverUrl: g.coverUrl,
-    badgeText: `${g._count.userId}`,
+    badgeText: `${g._count.userId} players`,
     badgeStyle: 'bg-emerald-950/90 text-emerald-300 border border-emerald-500/40',
   }));
 
@@ -47,8 +68,8 @@ export default async function HomePage() {
     steamAppId: g.steamAppId,
     gameTitle: g.gameTitle,
     coverUrl: g.coverUrl,
-    badgeText: `${g._count.userId}`,
-    badgeStyle: 'bg-cyan-950/90 text-cyan-300 border border-cyan-500/40',
+    badgeText: `${g._count.userId} wanted`,
+    badgeStyle: 'bg-amber-950/90 text-amber-300 border border-amber-500/40',
   }));
 
   const newlyReleasedItems: GridItem[] = newlyReleased.map((g) => ({
@@ -69,7 +90,6 @@ export default async function HomePage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-12">
-      {/* 0. Logged-Out Welcome Splash Page */}
       {!isLoggedIn && (
         <div className="relative overflow-hidden rounded-3xl bg-slate-900 border border-slate-800 p-8 sm:p-12 shadow-2xl bg-gradient-to-br from-slate-900 via-purple-950/20 to-slate-950">
           <div className="max-w-3xl space-y-6 relative z-10">
@@ -92,7 +112,6 @@ export default async function HomePage() {
               </Link>
             </div>
 
-            {/* Feature Highlights Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 border-t border-slate-800/80">
               <div className="space-y-1">
                 <span className="text-base">🔄</span>
@@ -114,7 +133,6 @@ export default async function HomePage() {
         </div>
       )}
 
-      {/* 1. What Folks Are Playing */}
       <HomeSectionGrid
         title="What Folks are Playing"
         subtitle="Recent active logs across the community"
@@ -122,10 +140,10 @@ export default async function HomePage() {
         items={activeLogItems}
         itemsPerPage={6}
         userLists={userLists}
+        userLogs={userLogs}
         isLoggedIn={isLoggedIn}
       />
 
-      {/* 2. Most Played Games */}
       <HomeSectionGrid
         title="Most Played Games"
         subtitle="Ranked by total community logs"
@@ -133,21 +151,21 @@ export default async function HomePage() {
         items={mostPlayedItems}
         itemsPerPage={6}
         userLists={userLists}
+        userLogs={userLogs}
         isLoggedIn={isLoggedIn}
       />
 
-      {/* 3. Most Wanted Games */}
       <HomeSectionGrid
         title="Most Wanted Games"
-        subtitle="Top games in user wishlists and backlogs"
+        subtitle="Top games in user backlogs"
         accentColor="border-amber-500/40"
         items={mostWantedItems}
         itemsPerPage={6}
         userLists={userLists}
+        userLogs={userLogs}
         isLoggedIn={isLoggedIn}
       />
 
-      {/* 4. Release Calendar */}
       <HomeSectionGrid
         title="Newly Released"
         subtitle="Past 7 days"
@@ -155,6 +173,7 @@ export default async function HomePage() {
         items={newlyReleasedItems}
         itemsPerPage={6}
         userLists={userLists}
+        userLogs={userLogs}
         isLoggedIn={isLoggedIn}
       />
 
@@ -165,10 +184,10 @@ export default async function HomePage() {
         items={upcomingItems}
         itemsPerPage={6}
         userLists={userLists}
+        userLogs={userLogs}
         isLoggedIn={isLoggedIn}
       />
 
-      {/* 5. Featured Community Lists */}
       <section className="space-y-4 pt-4 border-t border-slate-800">
         <div className="flex items-center justify-between">
           <div>

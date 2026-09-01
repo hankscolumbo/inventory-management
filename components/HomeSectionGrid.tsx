@@ -21,6 +21,22 @@ export interface GridItem {
   };
 }
 
+export interface UserLogItem {
+  id: string;
+  igdbId?: number | null;
+  steamAppId?: number | null;
+  gameTitle: string;
+  coverUrl?: string | null;
+  status: string;
+  substatus?: string | null;
+  rating?: number | null;
+  review?: string | null;
+  playtimeHours?: number | null;
+  platforms?: string[];
+  playedOn?: Date | string | null;
+  isOwned?: boolean;
+}
+
 interface HomeSectionGridProps {
   title: string;
   subtitle?: string;
@@ -28,6 +44,7 @@ interface HomeSectionGridProps {
   items: GridItem[];
   itemsPerPage?: number;
   userLists?: { id: string; title: string }[];
+  userLogs?: UserLogItem[]; // 👈 Accept user's existing logs
   isLoggedIn?: boolean;
 }
 
@@ -44,6 +61,7 @@ export default function HomeSectionGrid({
   items,
   itemsPerPage = 6,
   userLists = [],
+  userLogs = [],
   isLoggedIn = false,
 }: HomeSectionGridProps) {
   const [page, setPage] = useState(1);
@@ -109,6 +127,13 @@ export default function HomeSectionGrid({
           {visibleItems.map((item, idx) => {
             const href = getHref(item);
 
+            // Match card to user's existing log entry
+            const existingLog = userLogs.find(
+              (log) =>
+                (item.igdbId && log.igdbId === item.igdbId) ||
+                (item.steamAppId && log.steamAppId === item.steamAppId)
+            );
+
             return (
               <div
                 key={item.id || item.igdbId || `${item.gameTitle}-${idx}`}
@@ -128,7 +153,6 @@ export default function HomeSectionGrid({
                       </div>
                     )}
 
-                    {/* 🔽 Top-Left Deal Icon Overlay */}
                     <button
                       type="button"
                       onClick={(e) => {
@@ -144,7 +168,6 @@ export default function HomeSectionGrid({
                       </svg>
                     </button>
 
-                    {/* Top-Right Badge (Players/Release Date) */}
                     {item.badgeText && (
                       <span
                         className={`absolute top-1.5 right-1.5 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shadow z-10 ${
@@ -178,17 +201,17 @@ export default function HomeSectionGrid({
                   )}
                 </Link>
 
-                {/* Footer Quick Actions */}
                 {isLoggedIn && (
                   <div className="p-1.5 border-t border-slate-800/80 bg-slate-950/90 z-20">
                     <GameCardActions
                       item={{
-                        id: item.id,
+                        id: existingLog?.id || item.id,
                         gameTitle: item.gameTitle,
                         coverUrl: item.coverUrl,
                         igdbId: item.igdbId,
                         steamAppId: item.steamAppId,
                       }}
+                      initialLog={existingLog || null}
                       userLists={userLists}
                     />
                   </div>
@@ -199,7 +222,6 @@ export default function HomeSectionGrid({
         </div>
       </section>
 
-      {/* 🔽 Render CheapShark Modal when active */}
       {activeDealGame && (
         <GameDealsModal
           gameTitle={activeDealGame.gameTitle}
