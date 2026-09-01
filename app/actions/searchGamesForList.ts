@@ -47,6 +47,7 @@ export interface SearchGameResult {
   igdbId: number;
   gameTitle: string;
   coverUrl: string | null;
+  releaseYear: number | null;
 }
 
 export async function searchGamesForList(query: string): Promise<SearchGameResult[]> {
@@ -67,7 +68,7 @@ export async function searchGamesForList(query: string): Promise<SearchGameResul
         'Content-Type': 'text/plain',
       },
       cache: 'no-store',
-      body: `fields name, cover.url; search "${cleanQuery}"; where game_type = (0, 4, 5, 8, 9); limit 15;`,
+      body: `fields name, cover.url, first_release_date; search "${cleanQuery}"; where game_type = (0, 4, 5, 8, 9); limit 15;`,
     });
 
     if (!res.ok) return [];
@@ -83,10 +84,15 @@ export async function searchGamesForList(query: string): Promise<SearchGameResul
         ? `https:${rawCover.replace('t_thumb', 't_1080p')}`
         : null;
 
+        const releaseYear = game.first_release_date
+          ? new Date(game.first_release_date * 1000).getFullYear()
+          : null;
+
       return {
         igdbId: Number(game.id),
         gameTitle: game.name,
         coverUrl,
+        releaseYear,
       };
     });
   } catch (error) {

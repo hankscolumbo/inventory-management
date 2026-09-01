@@ -1,6 +1,7 @@
 // components/AddGamesToListModal.tsx
 'use client';
 
+import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
@@ -100,30 +101,46 @@ export default function AddGamesToListModal({ customListId }: AddGameToListModal
             results.map((game) => (
               <div
                 key={game.igdbId}
-                className="flex items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-slate-800/80 hover:border-slate-700 transition"
+                className="flex items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-slate-800/80 hover:border-slate-700 transition gap-2"
               >
-                <div className="flex items-center gap-3">
+                <Link
+                  href={`/game/${game.igdbId}`}
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-2.5 min-w-0 flex-1 group cursor-pointer"
+                  >
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   {game.coverUrl ? (
                     <img
                       src={game.coverUrl}
                       alt={game.gameTitle}
-                      className="w-8 h-10 object-cover rounded-md"
+                      className="w-8 h-10 object-cover rounded-md shrink-0"
                     />
                   ) : (
-                    <div className="w-8 h-10 bg-slate-800 rounded-md flex items-center justify-center text-[10px] text-slate-500">
+                    <div className="w-8 h-10 bg-slate-800 rounded-md flex items-center justify-center text-[10px] text-slate-500 shrink-0">
                       N/A
                     </div>
                   )}
-                  <span className="text-xs font-bold text-white line-clamp-1">
-                    {game.gameTitle}
-                  </span>
+
+
+                  {/* Title + Year inline flex wrapper */}
+                  <div className="flex items-baseline gap-1.5 min-w-0 overflow-hidden">
+                    <span className="text-xs font-bold text-white truncate">
+                      {game.gameTitle}
+                    </span>
+                    {game.releaseYear && (
+                      <span className="text-[11px] text-slate-400 font-medium shrink-0">
+                        ({game.releaseYear})
+                      </span>
+                    )}
+                  </div>
                 </div>
+                </Link>
 
                 <button
                   type="button"
                   onClick={() => handleAdd(game)}
                   disabled={addingId === game.igdbId}
-                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 text-white text-xs font-bold rounded-lg transition"
+                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 text-white text-xs font-bold rounded-lg transition shrink-0"
                 >
                   {addingId === game.igdbId ? 'Adding...' : '+ Add'}
                 </button>
