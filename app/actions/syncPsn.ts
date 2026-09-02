@@ -10,6 +10,14 @@ import {
   getUserPlayedGames,
 } from 'psn-api';
 
+const EXCLUDED_PSN_TITLES = [
+  'EPIX',
+  'PlayStation®VR Demo Disc',
+  'Popcornflix',
+  'Netflix',
+  'PlayStation™Vue',
+]
+
 let cachedIgdbToken: { token: string; expiresAt: number } | null = null;
 
 async function getIgdbToken(): Promise<string | null> {
@@ -253,6 +261,14 @@ export async function syncPsnAccount(npssoToken: string) {
       if (!psnTitleId) continue;
 
       const gameTitle = game.name;
+      const isExcluded = EXCLUDED_PSN_TITLES.some(
+        (excluded) =>
+          excluded.toLowerCase() === gameTitle.toLowerCase() ||
+          excluded.toLowerCase() === psnTitleId.toLowerCase()
+      );
+      if (isExcluded) {
+        continue;
+      }
       const coverUrl = game.imageUrl;
       const playtimeHours = parseIsoDurationToHours(game.playDuration);
       const status = playtimeHours > 0 ? 'PLAYED' : 'WANT TO PLAY';

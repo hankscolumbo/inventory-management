@@ -101,7 +101,7 @@ export default function ReleaseNotesModal({ triggerText = "What's New" }: Releas
                   <h3 className="font-bold text-slate-100">Steam & PSN Date Accuracy</h3>
                 </div>
                 <p className="text-slate-400 pl-1 leading-relaxed">
-                  Improved last-played timestamp synchronization from Steam and PlayStation accounts into your log library.
+                  Improved last-played timestamp synchronization from Steam and PlayStation accounts into your log library. Also excluded video apps like Epix and Netflix.
                   Run Steam & PSN Syncs again to pull in dates!
                 </p>
               </div>
