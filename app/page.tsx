@@ -6,6 +6,7 @@ import { getHomePageData } from '@/lib/getHomePageData';
 import HomeSectionGrid, { GridItem } from '@/components/HomeSectionGrid';
 import SafeHtml from '@/components/safeHtml';
 import PriceAlertBanner from '@/components/PriceAlertBanner';
+import ReleaseNotesModal from '@/components/ReleaseNotesModal';
 
 export const revalidate = 300;
 
@@ -134,6 +135,7 @@ export default async function HomePage() {
           </div>
         </div>
       )}
+      <ReleaseNotesModal triggerText="What's New" />
 
       <HomeSectionGrid
         title="What Folks are Playing"
