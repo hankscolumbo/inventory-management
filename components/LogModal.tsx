@@ -57,13 +57,18 @@ interface LogModalProps {
     platforms?: string[];
     isOwned?: boolean | null;
     review?: string | null;
+    playedOn?: Date | string | null;
   };
   onClose: () => void;
 }
 
-export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
-  console.log('[LogModal DEBUG] initialLog:', initialLog);
+function formatDateForInput(date?: Date | string | null): string {
+  if (!date) return '';
+  const d = new Date(date);
+  return isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+}
 
+export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
   if (!game) return null;
 
   const [mounted, setMounted] = useState(false);
@@ -86,6 +91,9 @@ export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
   );
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(
     initialLog?.platforms || []
+  );
+  const [playedOn, setPlayedOn] = useState<string>(
+    formatDateForInput(initialLog?.playedOn)
   );
 
   const router = useRouter();
@@ -142,6 +150,8 @@ export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
 
     const numericGameId = Number(game.id);
 
+    const playedOnDate = playedOn && playedOn.trim() !== '' ? new Date(playedOn) : null;
+
     const res = await logGame({
       logId: initialLog?.id,
       gameId: numericGameId,
@@ -155,6 +165,7 @@ export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
       isSteamApp: game.isSteamApp ?? false,
       playtimeHours: playtimeHours !== '' ? Number(playtimeHours) : null,
       platforms: selectedPlatforms,
+      playedOn: playedOnDate,
     });
 
     setLoading(false);
@@ -190,10 +201,10 @@ export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
 
   const modalContent = (
     <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-          <h2 className="text-lg font-bold text-white truncate">
+          <h2 className="text-md font-bold text-white truncate">
             {initialLog ? `Edit Log for "${game.name}"` : `Log "${game.name}"`}
           </h2>
           <button
@@ -263,8 +274,8 @@ export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
             )}
           </div>
 
-          {/* Rating & Playtime Hours */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Rating, Playtime Hours, and Last Played Date */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
                 Rating
@@ -290,6 +301,19 @@ export default function LogModal({ game, initialLog, onClose }: LogModalProps) {
                 }
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
               />
+            </div>
+
+            {/* 🔽 Date Last Played Field */} 
+            <div> 
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1"> 
+                Date Last Played 
+                </label> 
+              <input 
+                type="date" 
+                value={playedOn} 
+                onChange={(e) => setPlayedOn(e.target.value)} 
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 color-scheme-dark" 
+                /> 
             </div>
           </div>
 

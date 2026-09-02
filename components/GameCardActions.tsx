@@ -22,6 +22,7 @@ interface GameItem {
   playtimeHours?: number | null;
   platforms?: string[];
   isOwned?: boolean;
+  playedOn?: Date | string | null;
 }
 
 
@@ -121,6 +122,7 @@ export default function GameCardActions({ item, initialLog = null, userLists = [
                   playtimeHours: activeLog.playtimeHours,
                   platforms: activeLog.platforms,
                   isOwned: activeLog.isOwned,
+                  playedOn: activeLog.playedOn,
                 }
               : undefined
           }

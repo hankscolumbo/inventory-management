@@ -17,6 +17,7 @@ interface LogInput {
   isOwned?: boolean;
   isSteamApp?: boolean;
   platforms?: string[];
+  playedOn: Date | string | null;
 }
 
 export async function deleteGameLog(gameId: number) {

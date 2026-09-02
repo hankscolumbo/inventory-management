@@ -1,18 +1,25 @@
-// components/GameDealsModal.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import GameDealsWidget from './GameDealsWidget';
+import PriceAlertModal from './PriceAlertModal';
 
 interface GameDealsModalProps {
   gameTitle: string;
   steamAppId?: number | null;
+  igdbId?: number | null;
   onClose: () => void;
 }
 
-export default function GameDealsModal({ gameTitle, steamAppId, onClose }: GameDealsModalProps) {
+export default function GameDealsModal({
+  gameTitle,
+  steamAppId,
+  igdbId,
+  onClose,
+}: GameDealsModalProps) {
   const [mounted, setMounted] = useState(false);
+  const [showPriceAlert, setShowPriceAlert] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -29,18 +36,39 @@ export default function GameDealsModal({ gameTitle, steamAppId, onClose }: GameD
             <h2 className="text-lg font-extrabold text-white truncate">{gameTitle}</h2>
             <p className="text-xs text-slate-400 font-mono">Live Price Comparison</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-slate-400 hover:text-white font-bold p-1 text-sm"
-          >
-            ✕
-          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowPriceAlert(true)}
+              className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/30 font-bold text-xs rounded-xl transition flex items-center gap-1.5"
+            >
+              <span>🔔</span> Set Alert
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-slate-400 hover:text-white font-bold p-1 text-sm"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
-        {/* Embedded Deals Grid */}
+        {/* Store Deals Widget */}
         <GameDealsWidget title={gameTitle} steamAppId={steamAppId} />
       </div>
+
+      {/* Render Price Alert Trigger */}
+      {showPriceAlert && (
+        <PriceAlertModal
+          gameTitle={gameTitle}
+          steamAppId={steamAppId}
+          igdbId={igdbId}
+          onClose={() => setShowPriceAlert(false)}
+        />
+      )}
     </div>,
     document.body
   );

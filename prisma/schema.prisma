@@ -29,6 +29,7 @@ model User {
   gameLogs        GameLog[]
   customLists     CustomList[]
   followedLists   ListFollow[]
+  priceAlerts     PriceAlert[]
 }
 
 model Account {
@@ -131,4 +132,20 @@ model ListFollow {
 
   user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   customList      CustomList  @relation(fields: [customListId], references: [id], onDelete: Cascade)
+}
+
+model PriceAlert {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gameTitle    String
+  steamAppId   Int?
+  igdbId       Int?
+  targetPrice  Float
+  lastPrice    Float?
+  isTriggered  Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, gameTitle])
 }

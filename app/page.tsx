@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { getHomePageData } from '@/lib/getHomePageData';
 import HomeSectionGrid, { GridItem } from '@/components/HomeSectionGrid';
 import SafeHtml from '@/components/safeHtml';
+import PriceAlertBanner from '@/components/PriceAlertBanner';
 
 export const revalidate = 300;
 
@@ -90,6 +91,7 @@ export default async function HomePage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-12">
+      <PriceAlertBanner />
       {!isLoggedIn && (
         <div className="relative overflow-hidden rounded-3xl bg-slate-900 border border-slate-800 p-8 sm:p-12 shadow-2xl bg-gradient-to-br from-slate-900 via-purple-950/20 to-slate-950">
           <div className="max-w-3xl space-y-6 relative z-10">

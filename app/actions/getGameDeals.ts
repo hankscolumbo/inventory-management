@@ -3,141 +3,167 @@
 
 export interface DealItem {
   dealID: string;
+  dealId: string; // Alias for camelCase compatibility
+  storeID: string;
   storeName: string;
   storeIcon: string;
   salePrice: string;
   normalPrice: string;
-  savings: number;
+  savings: string;
   dealUrl: string;
 }
 
-const CHEAPSHARK_HEADERS = {
-  'User-Agent': 'playLog/1.0 (contact@playlog.app)',
-  'Accept': 'application/json',
+interface StoreInfo {
+  name: string;
+  icon: string;
+}
+
+const FALLBACK_STORES: Record<string, StoreInfo> = {
+  '1': { name: 'Steam', icon: 'https://www.cheapshark.com/img/stores/icons/0.png' },
+  '2': { name: 'GamersGate', icon: 'https://www.cheapshark.com/img/stores/icons/1.png' },
+  '3': { name: 'GreenManGaming', icon: 'https://www.cheapshark.com/img/stores/icons/2.png' },
+  '7': { name: 'GOG', icon: 'https://www.cheapshark.com/img/stores/icons/6.png' },
+  '11': { name: 'Humble Store', icon: 'https://www.cheapshark.com/img/stores/icons/10.png' },
+  '13': { name: 'GameBillet', icon: 'https://www.cheapshark.com/img/stores/icons/12.png' },
+  '15': { name: 'Fanatical', icon: 'https://www.cheapshark.com/img/stores/icons/14.png' },
+  '25': { name: 'Epic Games', icon: 'https://www.cheapshark.com/img/stores/icons/24.png' },
+  '27': { name: 'Gamesplanet', icon: 'https://www.cheapshark.com/img/stores/icons/26.png' },
+  '30': { name: 'IndieGala', icon: 'https://www.cheapshark.com/img/stores/icons/29.png' },
 };
 
-let storeCache: Record<string, { storeName: string; icon: string }> | null = null;
-
-async function getStoreMap(): Promise<Record<string, { storeName: string; icon: string }>> {
-  if (storeCache) return storeCache;
-
+async function getStoreMap(): Promise<Record<string, StoreInfo>> {
   try {
     const res = await fetch('https://www.cheapshark.com/api/1.0/stores', {
-      headers: CHEAPSHARK_HEADERS,
+      headers: { 'User-Agent': 'GamingCatalog/1.0' },
       next: { revalidate: 86400 },
     });
-    if (!res.ok) return {};
-    const stores = await res.json();
-    const map: Record<string, { storeName: string; icon: string }> = {};
 
-    stores.forEach((s: any) => {
-      if (s.isActive) {
-        map[s.storeID] = {
-          storeName: s.storeName,
-          icon: `https://www.cheapshark.com${s.images.icon}`,
-        };
+    if (res.ok) {
+      const stores = await res.json();
+      if (Array.isArray(stores)) {
+        const dynamicMap: Record<string, StoreInfo> = {};
+        for (const store of stores) {
+          if (store.storeID) {
+            dynamicMap[store.storeID] = {
+              name: store.storeName || `Store #${store.storeID}`,
+              icon: store.images?.icon
+                ? `https://www.cheapshark.com${store.images.icon}`
+                : `https://www.cheapshark.com/img/stores/icons/${Math.max(0, Number(store.storeID) - 1)}.png`,
+            };
+          }
+        }
+        return { ...FALLBACK_STORES, ...dynamicMap };
       }
-    });
-
-    storeCache = map;
-    return map;
-  } catch {
-    return {};
+    }
+  } catch (error) {
+    console.error('Error fetching CheapShark store list:', error);
   }
+
+  return FALLBACK_STORES;
 }
 
-function cleanTitleForSearch(title: string): string {
-  if (!title) return '';
-
-    const beforeColon = title.split(':')[0] ?? title;
-    const beforeDash = beforeColon.split(' - ')[0] ?? beforeColon;
-    
-    return beforeDash.replace(/[™®©]/g, '').trim();
+function normalizeTitle(str: string): string {
+  return str.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
 }
 
-export async function getGameDeals(title: string, steamAppId?: number | null): Promise<DealItem[]> {
-  if (!title && !steamAppId) return [];
+function isTitleMatch(requestedTitle: string, resultTitle: string): boolean {
+  const normRequested = normalizeTitle(requestedTitle);
+  const normResult = normalizeTitle(resultTitle);
 
-  const storeMap = await getStoreMap();
+  if (normRequested === normResult) return true;
+
+  if (normRequested.includes(normResult) || normResult.includes(normRequested)) {
+    const minLength = Math.min(normRequested.length, normResult.length);
+    const maxLength = Math.max(normRequested.length, normResult.length);
+    return minLength / maxLength >= 0.75;
+  }
+
+  return false;
+}
+
+export async function getGameDeals(
+  gameTitle: string,
+  steamAppId?: number | null
+): Promise<DealItem[]> {
+  if (!gameTitle && !steamAppId) return [];
 
   try {
-    let gameId: string | null = null;
+    let targetGameId: string | null = null;
 
-    // 1. Try Lookup by Steam App ID
     if (steamAppId) {
-      try {
-        const steamRes = await fetch(
-          `https://www.cheapshark.com/api/1.0/games?steamAppID=${steamAppId}`,
-          {
-            headers: CHEAPSHARK_HEADERS,
-            cache: 'no-store',
-          }
-        );
-        if (steamRes.ok) {
-          const steamData = await steamRes.json();
-          if (Array.isArray(steamData) && steamData.length > 0) {
-            gameId = String(steamData[0].gameID);
-          }
+      const steamRes = await fetch(
+        `https://www.cheapshark.com/api/1.0/games?steamAppID=${steamAppId}`,
+        { headers: { 'User-Agent': 'GamingCatalog/1.0' }, next: { revalidate: 3600 } }
+      );
+
+      if (steamRes.ok) {
+        const steamGames = await steamRes.json();
+        if (Array.isArray(steamGames) && steamGames.length > 0) {
+          targetGameId = steamGames[0].gameID;
         }
-      } catch {}
+      }
     }
 
-    // 2. Fallback Lookup by Sanitized Title
-    if (!gameId && title) {
-      const searchTitle = cleanTitleForSearch(title);
-      try {
-        const searchRes = await fetch(
-          `https://www.cheapshark.com/api/1.0/games?title=${encodeURIComponent(searchTitle)}&limit=1`,
-          {
-            headers: CHEAPSHARK_HEADERS,
-            cache: 'no-store',
-          }
-        );
-        if (searchRes.ok) {
-          const searchData = await searchRes.json();
-          if (Array.isArray(searchData) && searchData.length > 0) {
-            gameId = String(searchData[0].gameID);
+    if (!targetGameId && gameTitle) {
+      const titleRes = await fetch(
+        `https://www.cheapshark.com/api/1.0/games?title=${encodeURIComponent(gameTitle)}&limit=10`,
+        { headers: { 'User-Agent': 'GamingCatalog/1.0' }, next: { revalidate: 3600 } }
+      );
+
+      if (titleRes.ok) {
+        const games = await titleRes.json();
+
+        if (Array.isArray(games) && games.length > 0) {
+          const matchedGame = games.find((g: any) => {
+            if (steamAppId && g.steamAppID && Number(g.steamAppID) === steamAppId) {
+              return true;
+            }
+            return isTitleMatch(gameTitle, g.external);
+          });
+
+          if (matchedGame) {
+            targetGameId = matchedGame.gameID;
           }
         }
-      } catch {}
+      }
     }
 
-    if (!gameId) return [];
+    if (!targetGameId) return [];
 
-    // 3. Fetch Game Details & Store Deal Listings
-    const detailsRes = await fetch(`https://www.cheapshark.com/api/1.0/games?id=${gameId}`, {
-      headers: CHEAPSHARK_HEADERS,
-      cache: 'no-store',
-    });
+    const [gameDetailRes, storeMap] = await Promise.all([
+      fetch(`https://www.cheapshark.com/api/1.0/games?id=${targetGameId}`, {
+        headers: { 'User-Agent': 'GamingCatalog/1.0' },
+        next: { revalidate: 1800 },
+      }),
+      getStoreMap(),
+    ]);
 
-    if (!detailsRes.ok) return [];
-    const detailsData = await detailsRes.json();
-    const dealsList = detailsData.deals || [];
+    if (!gameDetailRes.ok) return [];
 
-    if (!Array.isArray(dealsList) || dealsList.length === 0) return [];
+    const gameDetail = await gameDetailRes.json();
+    const deals = gameDetail.deals || [];
 
-    return dealsList.slice(0, 6).map((deal: any) => {
-      const storeInfo = storeMap[deal.storeID] || {
-        storeName: `Store #${deal.storeID}`,
-        icon: '',
+    return deals.map((d: any) => {
+      const store = storeMap[d.storeID] || {
+        name: `Store #${d.storeID}`,
+        icon: `https://www.cheapshark.com/img/stores/icons/${Math.max(0, Number(d.storeID) - 1)}.png`,
       };
 
-      const salePrice = deal.price || deal.salePrice || '0.00';
-      const normalPrice = deal.retailPrice || deal.normalPrice || salePrice;
-      const rawSavings = parseFloat(deal.savings || '0');
-
       return {
-        dealID: deal.dealID,
-        storeName: storeInfo.storeName,
-        storeIcon: storeInfo.icon,
-        salePrice,
-        normalPrice,
-        savings: Math.round(rawSavings),
-        dealUrl: `https://www.cheapshark.com/redirect?dealID=${deal.dealID}`,
+        dealID: d.dealID,
+        dealId: d.dealID,
+        storeID: d.storeID,
+        storeName: store.name,
+        storeIcon: store.icon,
+        salePrice: d.price,
+        normalPrice: d.retailPrice,
+        savings: Math.round(parseFloat(d.savings || '0')).toString(),
+        dealUrl: `https://www.cheapshark.com/redirect?dealID=${d.dealID}`,
       };
     });
   } catch (error) {
-    console.error('Error fetching CheapShark deals:', error);
+    console.error('Error fetching game deals:', error);
     return [];
   }
 }
+
