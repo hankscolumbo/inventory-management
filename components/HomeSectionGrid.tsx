@@ -194,6 +194,11 @@ export default function HomeSectionGrid({
                           <div className="w-full h-full bg-purple-600" />
                         )}
                       </div>
+                      {item.user?.name && (
+                        <span className="text-[12px] font-bold text-indigo-400 truncate">
+                        {item.user.name}
+                      </span>
+                      )}
                       <span className="text-[10px] font-medium text-slate-400 truncate">
                         @{item.user.username}
                       </span>
