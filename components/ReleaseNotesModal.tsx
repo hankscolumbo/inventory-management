@@ -72,10 +72,10 @@ export default function ReleaseNotesModal({ triggerText = "What's New" }: Releas
                   <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-extrabold rounded uppercase">
                     New Feature
                   </span>
-                  <h3 className="font-bold text-slate-100">Profile Deals Badge</h3>
+                  <h3 className="font-bold text-slate-100">Game Deals Badge</h3>
                 </div>
                 <p className="text-slate-400 pl-1 leading-relaxed">
-                  Quickly check live store prices directly from unowned games on your profile grid marked as <span className="text-purple-300 font-semibold">WANT TO PLAY</span>.
+                  Quickly check live store prices directly from home page and unowned games on your profile grid marked as <span className="text-purple-300 font-semibold">WANT TO PLAY</span>.
                 </p>
               </div>
 
@@ -88,7 +88,7 @@ export default function ReleaseNotesModal({ triggerText = "What's New" }: Releas
                   <h3 className="font-bold text-slate-100">3-State Ownership Filter</h3>
                 </div>
                 <p className="text-slate-400 pl-1 leading-relaxed">
-                  Easily toggle profile views between <span className="text-slate-200 font-semibold">All Games</span>, <span className="text-emerald-400 font-semibold">Owned</span>, and <span className="text-amber-400 font-semibold">Unowned</span> items.
+                  Easily toggle game grid view on user profile between <span className="text-slate-200 font-semibold">All Games</span>, <span className="text-emerald-400 font-semibold">Owned</span>, and <span className="text-amber-400 font-semibold">Unowned</span> items.
                 </p>
               </div>
 
@@ -102,6 +102,7 @@ export default function ReleaseNotesModal({ triggerText = "What's New" }: Releas
                 </div>
                 <p className="text-slate-400 pl-1 leading-relaxed">
                   Improved last-played timestamp synchronization from Steam and PlayStation accounts into your log library.
+                  Run Steam & PSN Syncs again to pull in dates!
                 </p>
               </div>
             </div>
