@@ -105,6 +105,19 @@ export default function ReleaseNotesModal({ triggerText = "What's New" }: Releas
                   Run Steam & PSN Syncs again to pull in dates!
                 </p>
               </div>
+
+            {/* Feature Section 4 */}
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[9px] font-extrabold rounded uppercase">
+                    Add Your Name!
+                  </span>
+                  <h3 className="font-bold text-slate-100">Steam & PSN Date Accuracy</h3>
+                </div>
+                <p className="text-slate-400 pl-1 leading-relaxed">
+                  You can now edit / add your name to your profile in addition to editing your avatar. Give it a try!
+                </p>
+              </div>
             </div>
 
             {/* Footer */}
