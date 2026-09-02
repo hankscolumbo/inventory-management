@@ -270,7 +270,7 @@ export default function AddToListModal({ game, userLists, customTrigger }: AddTo
             e.stopPropagation();
             setIsOpen(true);
         }}
-        className="inline-block cursor-pointer"
+        className="inline-block cursor-pointer w-full"
         >
             {customTrigger}
         </div>
