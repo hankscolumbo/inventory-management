@@ -24,6 +24,7 @@ interface GameLog {
     isOwned?: boolean;
     createdAt?: Date;
     updatedAt?: Date;
+    playedOn?: Date | string | null;
 }
 
 export function getGameLogHref(log: GameLog): string {
@@ -329,6 +330,7 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
                                     rating: log.rating,
                                     playtimeHours: log.playtimeHours,
                                     isOwned: log.isOwned,
+                                    playedOn: log.playedOn,
                                 }}
                                 userLists={userLists}
                             />

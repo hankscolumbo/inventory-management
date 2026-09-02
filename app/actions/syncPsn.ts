@@ -123,6 +123,13 @@ function parseIsoDurationToHours(duration?: string | number): number {
   return Number(totalHours.toFixed(1));
 }
 
+// Safely converts PSN timestamps to a JavaScript Date object
+function parsePsnDate(rawDate?: string | Date | null): Date | null {
+  if (!rawDate) return null;
+  const parsed = new Date(rawDate);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export async function syncPsnAccount(npssoToken: string) {
   const session = await auth();
 
@@ -176,7 +183,7 @@ export async function syncPsnAccount(npssoToken: string) {
       data: { psnNpsso: cleanToken },
     });
 
-    // 1. Load all existing games into memory
+    // 1. Load all existing games into memory (including playedOn)
     const existingLogs = await prisma.gameLog.findMany({
       where: { userId: dbUser.id },
       select: {
@@ -188,6 +195,7 @@ export async function syncPsnAccount(npssoToken: string) {
         playtimeHours: true,
         status: true,
         coverUrl: true,
+        playedOn: true,
       },
     });
 
@@ -211,6 +219,7 @@ export async function syncPsnAccount(npssoToken: string) {
         playtimeHours: log.playtimeHours,
         status: log.status,
         coverUrl: log.coverUrl,
+        playedOn: log.playedOn,
       };
 
       if (log.psnTitleIds && log.psnTitleIds.length > 0) {
@@ -249,6 +258,9 @@ export async function syncPsnAccount(npssoToken: string) {
       const status = playtimeHours > 0 ? 'PLAYED' : 'WANT TO PLAY';
       const service = (game.service || game.titleService || '').toLowerCase();
       const isOwned = service !== 'ps_plus';
+
+      // Parse last played date from PSN response (lastPlayedDateTime)
+      const psnPlayedOn = parsePsnDate(game.lastPlayedDateTime);
 
       const externalIds = await fetchExternalGameIds(gameTitle);
 
@@ -292,8 +304,9 @@ export async function syncPsnAccount(npssoToken: string) {
 
       let currentLogId: string;
       let currentPsnTitleIds: string[];
+      let finalPlayedOn: Date | null = null;
 
-      // 6. Update existing record (manual or previous sync) or create new log
+      // 6. Update existing record or create new log
       if (existingLog) {
         const updatedPsnTitleIds = Array.from(
           new Set([...(existingLog.psnTitleIds || []), psnTitleId])
@@ -308,10 +321,21 @@ export async function syncPsnAccount(npssoToken: string) {
         // Upgrade status if synced game has playtime
         let updatedStatus = existingLog.status;
         if (
-          (existingLog.status === 'WANT TO PLAY') &&
+          existingLog.status === 'WANT TO PLAY' &&
           playtimeHours > 0
         ) {
           updatedStatus = 'PLAYED';
+        }
+
+        // Keep the newest last played timestamp
+        if (psnPlayedOn) {
+          if (!existingLog.playedOn || new Date(psnPlayedOn) > new Date(existingLog.playedOn)) {
+            finalPlayedOn = psnPlayedOn;
+          } else {
+            finalPlayedOn = existingLog.playedOn;
+          }
+        } else {
+          finalPlayedOn = existingLog.playedOn ?? null;
         }
 
         const updatedLog = await prisma.gameLog.update({
@@ -323,12 +347,15 @@ export async function syncPsnAccount(npssoToken: string) {
             coverUrl: existingLog.coverUrl || coverUrl || undefined,
             igdbId: existingLog.igdbId ?? safeIgdbId,
             steamAppId: existingLog.steamAppId ?? safeSteamAppId,
+            playedOn: finalPlayedOn,
           },
         });
 
         currentLogId = updatedLog.id;
         currentPsnTitleIds = updatedPsnTitleIds;
       } else {
+        finalPlayedOn = psnPlayedOn;
+
         const createdLog = await prisma.gameLog.create({
           data: {
             userId: dbUser.id,
@@ -340,6 +367,7 @@ export async function syncPsnAccount(npssoToken: string) {
             isOwned,
             igdbId: safeIgdbId,
             steamAppId: safeSteamAppId,
+            playedOn: finalPlayedOn,
             platforms: [category.replace('_game', '').toUpperCase() || 'PLAYSTATION'],
           },
         });
@@ -348,7 +376,7 @@ export async function syncPsnAccount(npssoToken: string) {
         currentPsnTitleIds = [psnTitleId];
       }
 
-      // 7. Update local lookup maps so subsequent loop iterations match this entry
+      // 7. Update local lookup maps for subsequent loop passes
       const updatedFormattedLog = {
         id: currentLogId,
         gameTitle,
@@ -358,6 +386,7 @@ export async function syncPsnAccount(npssoToken: string) {
         playtimeHours: Math.max(existingLog?.playtimeHours ?? 0, playtimeHours),
         status: existingLog ? existingLog.status : status,
         coverUrl: existingLog?.coverUrl || coverUrl,
+        playedOn: finalPlayedOn,
       };
 
       for (const id of currentPsnTitleIds) {

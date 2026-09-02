@@ -86,6 +86,15 @@ export async function logGame(input: LogInput) {
     const steamAppId = input.isSteamApp ? numericGameId : null;
     const platforms = input.platforms || [];
 
+    const parsedPlayedOn = input.playedOn
+      ? new Date(input.playedOn)
+      : null;
+
+    const validPlayedOn =
+      parsedPlayedOn && !isNaN(parsedPlayedOn.getTime())
+      ? parsedPlayedOn
+      : null;
+
     // 2. Sequential Lookup Priority (Uses user.id instead of session.user.id)
     let existingLog = null;
 
@@ -127,7 +136,7 @@ export async function logGame(input: LogInput) {
           review: input.review ?? null,
           status: input.status,
           substatus: input.substatus !== undefined ? input.substatus : existingLog.substatus,
-          playedOn: new Date(),
+          playedOn: validPlayedOn,
           platforms,
           playtimeHours: input.playtimeHours ?? null,
           ...(igdbId && { igdbId }),
@@ -151,6 +160,7 @@ export async function logGame(input: LogInput) {
           playtimeHours: input.playtimeHours ?? null,
           isOwned: input.isOwned ?? false,
           psnTitleIds: [],
+          playedOn: validPlayedOn,
         },
       });
     }
