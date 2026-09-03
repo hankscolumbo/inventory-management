@@ -9,6 +9,35 @@ import { getActiveUserLists } from '@/app/actions/getUserLists';
 import LogGameButton from '@/components/LogGameButton';
 import AddToListModal from '@/components/AddToListModal';
 
+interface CustomBadgeRule {
+  terms: string[];
+  message: string;
+  badgeStyle?: string;
+}
+
+const CUSTOM_BADGE_RULES: CustomBadgeRule[] = [
+{
+  terms: ['harry potter', 'hogwarts', 'quidditch'],
+  message: '🏳️‍⚧️ PROTECT TRANS RIGHTS 🏳️‍⚧️',
+  badgeStyle: 'text-cyan-300 bg-fuchsia-500/60 border border-white-500/40',
+},
+{
+  terms: ['israel', 'palestine'],
+  message: '🇵🇸 FREE PALESTINE 🇵🇸',
+  badgeStyle: 'text-white bg-red-600/80 border border-green-500/40',
+},
+];
+
+function getAppendedBadges(title: string): CustomBadgeRule[] {
+  const lowerTitle = title.toLowerCase();
+  return CUSTOM_BADGE_RULES.filter((rule) =>
+    rule.terms.some((term) => lowerTitle.includes(term.toLowerCase()))
+);
+}
+
+const TRIGGER_TERMS = ['harry potter', 'hogwarts', 'quidditch'];
+const TRANS_RIGHTS_MSG = '🏳️‍⚧️ PROTECT TRANS RIGHTS 🏳️‍⚧️';
+
 interface GameResult {
   id: number;
   name: string;
@@ -128,7 +157,10 @@ export default function GameSearch({ initialQuery = '' }: GameSearchProps) {
               No quick results for "{query}"
             </div>
           ) : (
-            results.slice(0, 5).map((game) => (
+            results.slice(0, 5).map((game) => {
+              const matchedBadges = getAppendedBadges(game.name);
+              
+              return (
               <div
                 key={game.id}
                 className="flex items-center justify-between p-3 hover:bg-slate-800/60 transition group"
@@ -154,9 +186,22 @@ export default function GameSearch({ initialQuery = '' }: GameSearchProps) {
                     <h4 className="text-sm font-semibold text-slate-200 group-hover:text-purple-400 truncate transition">
                       {game.name}
                     </h4>
-                    {game.releaseYear && (
-                      <p className="text-xs text-slate-500 mt-0.5">{game.releaseYear}</p>
-                    )}
+                    <div className="flex items-centered flex-wrap gap-2 text-[11px] text-slate-400 mt-0.5">
+                        {game.releaseYear && (
+                          <p className="text-xs text-slate-500 mt-0.5">{game.releaseYear}</p>
+                        )}
+
+                        {matchedBadges.map((badge, idx) => (
+                          <span
+                            key={idx}
+                            className={`inline=flex items-center gap-1 font-bold text-[10px] px-1.5 py-0.5 rounded shadow-sm border ${
+                              badge.badgeStyle || 'text-purple-300 bg-purple-950/50 border-purple-500/40'
+                            }`}
+                            >
+                              {badge.message}
+                            </span>
+                        ))}
+                      </div>
                   </div>
                 </Link>
 
@@ -199,7 +244,7 @@ export default function GameSearch({ initialQuery = '' }: GameSearchProps) {
                   />
                 </div>
               </div>
-            ))
+            )})
           )}
         </div>
       )}
