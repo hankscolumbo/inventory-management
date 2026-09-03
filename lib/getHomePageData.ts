@@ -37,7 +37,7 @@ async function fetchIgdbReleases(whereClause: string, sortClause: string, limit 
       },
       next: { revalidate: 3600 },
       // 🔽 Enforce cover != null to skip unmapped games
-      body: `fields id, name, cover.url, first_release_date, hypes, rating_count; where ${whereClause} & game_type = (0, 4, 8, 9, 10, 11) & version_parent = null & cover != null; ${sortClause} limit ${limit};`,
+      body: `fields id, name, cover.url, first_release_date, hypes, rating_count; where ${whereClause} & game_type = (0, 3, 4, 8, 9, 10, 11) & version_parent = null & cover != null; ${sortClause} limit ${limit};`,
     });
 
 
