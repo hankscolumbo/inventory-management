@@ -1,4 +1,5 @@
 // app/game/[id]/page.tsx
+
 import { getGameCommunityData } from '@/lib/getGameCommunityData';
 import { notFound } from 'next/navigation';
 import { auth } from '@/lib/auth';
@@ -154,7 +155,7 @@ async function getGameDetails(gameId: string, isSteamAppExplicit: boolean) {
             const { releaseDate, isUpcoming, releaseYear } = parseReleaseInfo(game.first_release_date);
 
             return {
-              igdbId: Number(game.id), // ✅ Fixed igdbdId typo
+              igdbId: Number(game.id),
               steamAppId: numericId,
               name: game.name || 'Untitled Game',
               summary: cleanDescription(game.summary),
@@ -277,7 +278,7 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
             playtimeHours: true,
             platforms: true,
             isOwned: true,
-          }
+          },
         });
       }
     }
@@ -294,6 +295,33 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
     playingCount: 0,
     backlogCount: 0,
   }));
+
+  // Fetch Game Logs with User Profiles for Avatar Stacks
+  const communityConditions: any[] = [];
+  if (game.igdbId) communityConditions.push({ igdbId: game.igdbId });
+  if (game.steamAppId) communityConditions.push({ steamAppId: game.steamAppId });
+
+  const communityLogs = communityConditions.length > 0
+    ? await prisma.gameLog.findMany({
+        where: { OR: communityConditions },
+        select: {
+          id: true,
+          status: true,
+          user: {
+            select: {
+              id: true,
+              username: true,
+              name: true,
+              image: true,
+            },
+          },
+        },
+      })
+    : [];
+
+  const playedLogs = communityLogs.filter((l) => l.status === 'PLAYED');
+  const playingLogs = communityLogs.filter((l) => l.status === 'PLAYING');
+  const wantToPlayLogs = communityLogs.filter((l) => l.status === 'WANT TO PLAY');
 
   return (
     <main className="max-w-6xl mx-auto px-6 py-10 space-y-10">
@@ -342,14 +370,12 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
             {/* Release Date Badge */}
             {game.releaseDate && (
               <div
-                className={`flex items-center gap-1.5 text-xs font-mono font-bold px-3 py-1 rounded-lg shrink-0 border ${game.isUpcoming
-                  ? 'bg-emerald-950/60 border-emerald-800/80 text-emerald-400'
-                  : 'bg-purple-950/40 border-purple-800/40 text-purple-400'
-                  }`}
+                className={`flex items-center gap-1.5 text-xs font-mono font-bold px-3 py-1 rounded-lg shrink-0 border ${
+                  game.isUpcoming
+                    ? 'bg-emerald-950/60 border-emerald-800/80 text-emerald-400'
+                    : 'bg-purple-950/40 border-purple-800/40 text-purple-400'
+                }`}
               >
-                {/*<svg className="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>*/}
                 <span>{game.isUpcoming ? '🚀 Releases:' : '🗓️ Released:'}</span>
                 <span>{game.releaseDate}</span>
               </div>
@@ -377,17 +403,20 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
             </div>
           </div>
 
-          {/* Community Stats Bar */}
-          <div className="flex flex-wrap gap-6 py-3 px-4 bg-slate-950 border border-slate-800 rounded-xl text-xs">
+          {/* 📊 Consolidated Community Stats & User Avatars Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 py-3 px-4 bg-slate-950 border border-slate-800 rounded-xl text-xs">
+            {/* Avg Rating */}
             <div>
-              <span className="font-extrabold text-white text-base block">
+              <span className="font-extrabold text-amber-300 text-base block">
                 {stats.avgRating ? `★ ${stats.avgRating}` : 'N/A'}
               </span>
               <span className="text-slate-400 uppercase tracking-wider font-semibold text-[10px]">
                 Avg Rating
               </span>
             </div>
-            <div className="border-l border-slate-800 pl-6">
+
+            {/* Logged By */}
+            <div className="border-l border-slate-800 pl-4">
               <span className="font-extrabold text-white text-base block">
                 {stats.totalLogs}
               </span>
@@ -395,21 +424,128 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
                 Logged By
               </span>
             </div>
-            <div className="border-l border-slate-800 pl-6">
-              <span className="font-extrabold text-emerald-400 text-base block">
-                {stats.playedCount}
-              </span>
-              <span className="text-slate-400 uppercase tracking-wider font-semibold text-[10px]">
-                Played
-              </span>
+
+            {/* Played */}
+            <div className="border-l border-slate-800 pl-4 space-y-1">
+              <div>
+                <span className="font-extrabold text-emerald-400 text-base block">
+                  {playedLogs.length}
+                </span>
+                <span className="text-slate-400 uppercase tracking-wider font-semibold text-[10px]">
+                  Played
+                </span>
+              </div>
+              {playedLogs.length > 0 && (
+                <div className="flex -space-x-1.5 overflow-visible pt-1">
+                  {playedLogs.slice(0, 5).map((log) => {
+                    const username = log.user.username || log.user.name || 'User';
+                    return (
+                      <Link
+                        key={log.id}
+                        href={`/log/${log.id}`}
+                        className="relative group shrink-0 transition transform hover:scale-125 hover:z-20"
+                      >
+                        {log.user.image ? (
+                          <img
+                            src={log.user.image}
+                            alt={username}
+                            className="w-5 h-5 rounded-full border border-slate-900 object-cover"
+                          />
+                        ) : (
+                          <div className="w-5 h-5 rounded-full border border-slate-900 bg-emerald-950 text-emerald-300 text-[8px] font-bold flex items-center justify-center">
+                            {username.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:flex px-1.5 py-0.5 bg-slate-900 text-[9px] text-white font-mono rounded shadow-lg border border-slate-700 whitespace-nowrap z-30 pointer-events-none">
+                          @{username}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-            <div className="border-l border-slate-800 pl-6">
-              <span className="font-extrabold text-cyan-400 text-base block">
-                {stats.playingCount}
-              </span>
-              <span className="text-slate-400 uppercase tracking-wider font-semibold text-[10px]">
-                Playing
-              </span>
+
+            {/* Playing */}
+            <div className="border-l border-slate-800 pl-4 space-y-1">
+              <div>
+                <span className="font-extrabold text-cyan-400 text-base block">
+                  {playingLogs.length}
+                </span>
+                <span className="text-slate-400 uppercase tracking-wider font-semibold text-[10px]">
+                  Playing
+                </span>
+              </div>
+              {playingLogs.length > 0 && (
+                <div className="flex -space-x-1.5 overflow-visible pt-1">
+                  {playingLogs.slice(0, 5).map((log) => {
+                    const username = log.user.username || log.user.name || 'User';
+                    return (
+                      <Link
+                        key={log.id}
+                        href={`/log/${log.id}`}
+                        className="relative group shrink-0 transition transform hover:scale-125 hover:z-20"
+                      >
+                        {log.user.image ? (
+                          <img
+                            src={log.user.image}
+                            alt={username}
+                            className="w-5 h-5 rounded-full border border-slate-900 object-cover"
+                          />
+                        ) : (
+                          <div className="w-5 h-5 rounded-full border border-slate-900 bg-cyan-950 text-cyan-300 text-[8px] font-bold flex items-center justify-center">
+                            {username.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:flex px-1.5 py-0.5 bg-slate-900 text-[9px] text-white font-mono rounded shadow-lg border border-slate-700 whitespace-nowrap z-30 pointer-events-none">
+                          @{username}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Want To Play */}
+            <div className="border-l border-slate-800 pl-4 space-y-1">
+              <div>
+                <span className="font-extrabold text-purple-400 text-base block">
+                  {wantToPlayLogs.length}
+                </span>
+                <span className="text-slate-400 uppercase tracking-wider font-semibold text-[10px]">
+                  Want To Play
+                </span>
+              </div>
+              {wantToPlayLogs.length > 0 && (
+                <div className="flex -space-x-1.5 overflow-visible pt-1">
+                  {wantToPlayLogs.slice(0, 5).map((log) => {
+                    const username = log.user.username || log.user.name || 'User';
+                    return (
+                      <Link
+                        key={log.id}
+                        href={`/log/${log.id}`}
+                        className="relative group shrink-0 transition transform hover:scale-125 hover:z-20"
+                      >
+                        {log.user.image ? (
+                          <img
+                            src={log.user.image}
+                            alt={username}
+                            className="w-5 h-5 rounded-full border border-slate-900 object-cover"
+                          />
+                        ) : (
+                          <div className="w-5 h-5 rounded-full border border-slate-900 bg-purple-950 text-purple-300 text-[8px] font-bold flex items-center justify-center">
+                            {username.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:flex px-1.5 py-0.5 bg-slate-900 text-[9px] text-white font-mono rounded shadow-lg border border-slate-700 whitespace-nowrap z-30 pointer-events-none">
+                          @{username}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
@@ -421,31 +557,7 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
         </div>
       </div>
 
-      {/* Client Interactive Log Button */}
-      <div className="flex justify-end">
-        <LogGameButton
-          game={{
-            id: game.igdbId || game.steamAppId!,
-            name: game.name,
-            coverUrl: game.coverUrl,
-            isSteamApp: !game.igdbId && Boolean(game.steamAppId),
-          }}
-          initialLog={
-            existingLog
-              ? {
-                status: existingLog.status as any,
-                rating: existingLog.rating,
-                playtimeHours: existingLog.playtimeHours,
-                platforms: existingLog.platforms || [],
-                isOwned: existingLog.isOwned,
-                review: (existingLog as any).review || '',
-                substatus: existingLog.substatus || null,
-              }
-              : undefined
-          }
-        />
-      </div>
-      {/* Client Interactive Action Buttons */}
+      {/* Client Interactive Log Button & Actions */}
       <div className="flex items-center justify-end gap-3">
         {session?.user && userLists.length > 0 && (
           <AddToListModal
@@ -458,6 +570,27 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
             userLists={userLists}
           />
         )}
+        <LogGameButton
+          game={{
+            id: game.igdbId || game.steamAppId!,
+            name: game.name,
+            coverUrl: game.coverUrl,
+            isSteamApp: !game.igdbId && Boolean(game.steamAppId),
+          }}
+          initialLog={
+            existingLog
+              ? {
+                  status: existingLog.status as any,
+                  rating: existingLog.rating,
+                  playtimeHours: existingLog.playtimeHours,
+                  platforms: existingLog.platforms || [],
+                  isOwned: existingLog.isOwned,
+                  review: (existingLog as any).review || '',
+                  substatus: existingLog.substatus || null,
+                }
+              : undefined
+          }
+        />
       </div>
     </main>
   );
