@@ -16,27 +16,24 @@ interface CustomBadgeRule {
 }
 
 const CUSTOM_BADGE_RULES: CustomBadgeRule[] = [
-{
-  terms: ['harry potter', 'hogwarts', 'quidditch'],
-  message: '🏳️‍⚧️ PROTECT TRANS RIGHTS 🏳️‍⚧️',
-  badgeStyle: 'text-cyan-300 bg-fuchsia-500/60 border border-white-500/40',
-},
-{
-  terms: ['israel', 'palestine'],
-  message: '🇵🇸 FREE PALESTINE 🇵🇸',
-  badgeStyle: 'text-white bg-red-600/80 border border-green-500/40',
-},
+  {
+    terms: ['harry potter', 'hogwarts', 'quidditch'],
+    message: '🏳️‍⚧️ PROTECT TRANS RIGHTS 🏳️‍⚧️',
+    badgeStyle: 'text-cyan-300 bg-fuchsia-500/60 border border-white-500/40',
+  },
+  {
+    terms: ['israel', 'palestine'],
+    message: '🇵🇸 FREE PALESTINE 🇵🇸',
+    badgeStyle: 'text-white bg-red-600/80 border border-green-500/40',
+  },
 ];
 
 function getAppendedBadges(title: string): CustomBadgeRule[] {
   const lowerTitle = title.toLowerCase();
   return CUSTOM_BADGE_RULES.filter((rule) =>
     rule.terms.some((term) => lowerTitle.includes(term.toLowerCase()))
-);
+  );
 }
-
-const TRIGGER_TERMS = ['harry potter', 'hogwarts', 'quidditch'];
-const TRANS_RIGHTS_MSG = '🏳️‍⚧️ PROTECT TRANS RIGHTS 🏳️‍⚧️';
 
 interface GameResult {
   id: number;
@@ -60,7 +57,7 @@ export default function GameSearch({ initialQuery = '' }: GameSearchProps) {
 
   const debouncedQuery = useDebounce(query, 300);
   const searchRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null); // Ref for input focus checks
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     getActiveUserLists().then((lists) => setUserLists(lists));
@@ -77,17 +74,28 @@ export default function GameSearch({ initialQuery = '' }: GameSearchProps) {
 
       setLoading(true);
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(debouncedQuery)}`);
+        // Fetch 5 results for fast dropdown autocomplete
+        const res = await fetch(`/api/search?q=${encodeURIComponent(debouncedQuery)}&limit=5`);
         if (res.ok) {
           const data = await res.json();
-          setResults(data);
-          // Only open dropdown if the user is actively focused on the input field
-          if (document.activeElement === inputRef.current) {
+
+          const searchResults = Array.isArray(data.results)
+            ? data.results
+            : Array.isArray(data)
+              ? data
+              : [];
+
+          setResults(searchResults);
+          
+          if (document.activeElement === inputRef.current && searchResults.length > 0) {
             setIsDropdownOpen(true);
           }
+        } else {
+          setResults([]);
         }
       } catch (err) {
         console.error('Failed to search games:', err);
+        setResults([]);
       } finally {
         setLoading(false);
       }
@@ -113,7 +121,7 @@ export default function GameSearch({ initialQuery = '' }: GameSearchProps) {
     if (!query.trim()) return;
 
     setIsDropdownOpen(false);
-    inputRef.current?.blur(); // Explicitly remove focus from input field
+    inputRef.current?.blur();
     router.push(`/search?q=${encodeURIComponent(query.trim())}`);
   };
 
@@ -138,7 +146,7 @@ export default function GameSearch({ initialQuery = '' }: GameSearchProps) {
 
         <button
           type="submit"
-          className="absolute right-2 top-2 bottom-2 px-3 bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium rounded-lg transition"
+          className="absolute right-2 top-2 bottom-2 px-3 bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium rounded-lg transition cursor-pointer"
         >
           Search
         </button>
@@ -159,34 +167,34 @@ export default function GameSearch({ initialQuery = '' }: GameSearchProps) {
           ) : (
             results.slice(0, 5).map((game) => {
               const matchedBadges = getAppendedBadges(game.name);
-              
-              return (
-              <div
-                key={game.id}
-                className="flex items-center justify-between p-3 hover:bg-slate-800/60 transition group"
-              >
-                <Link
-                  href={`/game/${game.id}`}
-                  onClick={() => setIsDropdownOpen(false)}
-                  className="flex items-center gap-3 flex-1 min-w-0"
-                >
-                  {game.coverUrl ? (
-                    <img
-                      src={game.coverUrl.startsWith('//') ? `https:${game.coverUrl}` : game.coverUrl}
-                      alt={game.name}
-                      className="w-10 h-14 object-cover rounded border border-slate-700 shrink-0"
-                    />
-                  ) : (
-                    <div className="w-10 h-14 bg-slate-800 rounded flex items-center justify-center text-[10px] text-slate-500 shrink-0">
-                      No Cover
-                    </div>
-                  )}
 
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-semibold text-slate-200 group-hover:text-purple-400 truncate transition">
-                      {game.name}
-                    </h4>
-                    <div className="flex items-centered flex-wrap gap-2 text-[11px] text-slate-400 mt-0.5">
+              return (
+                <div
+                  key={game.id}
+                  className="flex items-center justify-between p-3 hover:bg-slate-800/60 transition group"
+                >
+                  <Link
+                    href={`/game/${game.id}`}
+                    onClick={() => setIsDropdownOpen(false)}
+                    className="flex items-center gap-3 flex-1 min-w-0"
+                  >
+                    {game.coverUrl ? (
+                      <img
+                        src={game.coverUrl.startsWith('//') ? `https:${game.coverUrl}` : game.coverUrl}
+                        alt={game.name}
+                        className="w-10 h-14 object-cover rounded border border-slate-700 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-10 h-14 bg-slate-800 rounded flex items-center justify-center text-[10px] text-slate-500 shrink-0">
+                        No Cover
+                      </div>
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-semibold text-slate-200 group-hover:text-purple-400 truncate transition">
+                        {game.name}
+                      </h4>
+                      <div className="flex items-center flex-wrap gap-2 text-[11px] text-slate-400 mt-0.5">
                         {game.releaseYear && (
                           <p className="text-xs text-slate-500 mt-0.5">{game.releaseYear}</p>
                         )}
@@ -194,57 +202,58 @@ export default function GameSearch({ initialQuery = '' }: GameSearchProps) {
                         {matchedBadges.map((badge, idx) => (
                           <span
                             key={idx}
-                            className={`inline=flex items-center gap-1 font-bold text-[10px] px-1.5 py-0.5 rounded shadow-sm border ${
+                            className={`inline-flex items-center gap-1 font-bold text-[10px] px-1.5 py-0.5 rounded shadow-sm border ${
                               badge.badgeStyle || 'text-purple-300 bg-purple-950/50 border-purple-500/40'
                             }`}
-                            >
-                              {badge.message}
-                            </span>
+                          >
+                            {badge.message}
+                          </span>
                         ))}
                       </div>
-                  </div>
-                </Link>
+                    </div>
+                  </Link>
 
-                <div className="flex items-center gap-1.5 ml-3 opacity-90 sm:opacity-0 group-hover:opacity-100 transition shrink-0">
-                  {userLists.length > 0 && (
-                    <AddToListModal
+                  <div className="flex items-center gap-1.5 ml-3 opacity-90 sm:opacity-0 group-hover:opacity-100 transition shrink-0">
+                    {userLists.length > 0 && (
+                      <AddToListModal
+                        game={{
+                          name: game.name,
+                          coverUrl: game.coverUrl,
+                          igdbId: game.id,
+                        }}
+                        userLists={userLists}
+                        customTrigger={
+                          <button
+                            type="button"
+                            title="Add to List"
+                            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition text-xs cursor-pointer"
+                          >
+                            📋
+                          </button>
+                        }
+                      />
+                    )}
+
+                    <LogGameButton
                       game={{
+                        id: game.id,
                         name: game.name,
                         coverUrl: game.coverUrl,
-                        igdbId: game.id,
                       }}
-                      userLists={userLists}
                       customTrigger={
                         <button
                           type="button"
-                          title="Add to List"
-                          className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition text-xs"
+                          title="Log Game"
+                          className="p-1.5 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 rounded-lg transition text-xs cursor-pointer"
                         >
-                          📋
+                          ➕
                         </button>
                       }
                     />
-                  )}
-
-                  <LogGameButton
-                    game={{
-                      id: game.id,
-                      name: game.name,
-                      coverUrl: game.coverUrl,
-                    }}
-                    customTrigger={
-                      <button
-                        type="button"
-                        title="Log Game"
-                        className="p-1.5 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 rounded-lg transition text-xs"
-                      >
-                        ➕
-                      </button>
-                    }
-                  />
+                  </div>
                 </div>
-              </div>
-            )})
+              );
+            })
           )}
         </div>
       )}
