@@ -14,6 +14,7 @@ import EditableAvatar from '@/components/EditableAvatar';
 import PsnSyncModal from '@/components/PsnSyncModal';
 import PossibleDuplicatesSection from '@/components/PossibleDuplicatesSection';
 import EditNameModal from '@/components/EditNameModal';
+import ExportLogsButton from '@/components/ExportLogsButton';
 
 interface PageProps {
   params: Promise<{ username: string }>;
@@ -119,6 +120,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
                   psnOnlineId={user.psnOnlineId}
                   isOwner={isProfileOwner}
                 />
+                <ExportLogsButton />
                 <SignOutButton />
               </div>
             )}
