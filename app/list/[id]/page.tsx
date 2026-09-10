@@ -7,6 +7,7 @@ import ListProgressSummary from '@/components/ListProgressSummary';
 import FollowListButton from '@/components/FollowListButton';
 import EditableListGrid from './EditableListGrid';
 import EditListModal from '@/components/EditListModal';
+import DeleteListButton from '@/components/DeleteListButton';
 import SafeHtml from '@/components/safeHtml';
 import ReactionsBar from '@/components/ReactionsBar';
 import CommentSection from '@/components/CommentSection';
@@ -139,16 +140,21 @@ export default async function ListPage({ params }: Props) {
         {/* Right 1/3: Title, Description & Author Profile Link */}
         <div className="relative md:col-span-1 bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-col justify-between space-y-4">
           {isOwner && (
-            <div className="absolute top-4 right-4 z-10">
+            <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
               <EditListModal
                 listId={list.id}
                 initialTitle={list.title}
                 initialDescription={list.description || ''}
               />
+              <DeleteListButton
+                listId={list.id}
+                listTitle={list.title}
+                username={list.user.username ?? undefined}
+              />
             </div>
           )}
           <div>
-            <h1 className="text-2xl font-extrabold text-white mb-2 leading-tight">
+            <h1 className="text-2xl font-extrabold text-white mb-2 leading-tight pr-16">
               {list.title}
             </h1>
             {list.description && (
@@ -208,4 +214,3 @@ export default async function ListPage({ params }: Props) {
     </div>
   );
 }
-
