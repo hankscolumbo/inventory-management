@@ -1,9 +1,9 @@
-// components/Navbar.tsx
+// components/BottomNav.tsx
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import NavbarClient from './NavbarClient';
+import BottomNavClient from './BottomNavClient';
 
-export default async function Navbar() {
+export default async function BottomNav() {
   const session = await auth();
 
   let username: string | undefined = undefined;
@@ -19,11 +19,12 @@ export default async function Navbar() {
   }
 
   return (
-    <NavbarClient
+    <BottomNavClient
       isAuthenticated={!!session}
       username={username}
       avatarUrl={avatarUrl}
-      fallbackName={session?.user?.name ?? undefined}
+      fallbackInitial={session?.user?.name?.[0] || 'U'}
     />
   );
 }
+
