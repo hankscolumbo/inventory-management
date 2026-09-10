@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 
 // 🔽 Update this version string whenever you publish major updates!
-const CURRENT_RELEASE_VERSION = 'v1.2.0';
+const CURRENT_RELEASE_VERSION = 'v1.3.0';
 
 interface ReleaseNotesModalProps {
   /** Optional custom trigger button to open modal manually */
@@ -83,12 +83,12 @@ export default function ReleaseNotesModal({ triggerText = "What's New" }: Releas
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
                   <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[9px] font-extrabold rounded uppercase">
-                    Improved
+                    New Section
                   </span>
-                  <h3 className="font-bold text-slate-100">3-State Ownership Filter</h3>
+                  <h3 className="font-bold text-slate-100">Browsing</h3>
                 </div>
                 <p className="text-slate-400 pl-1 leading-relaxed">
-                  Easily toggle game grid view on user profile between <span className="text-slate-200 font-semibold">All Games</span>, <span className="text-emerald-400 font-semibold">Owned</span>, and <span className="text-amber-400 font-semibold">Unowned</span> items.
+                  Use the new tab to<span className="text-slate-200 font-semibold">Browse</span> games and apply filters to find more games to Log or List.
                 </p>
               </div>
 
@@ -96,28 +96,15 @@ export default function ReleaseNotesModal({ triggerText = "What's New" }: Releas
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
                   <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[9px] font-extrabold rounded uppercase">
-                    Sync Fixes
+                    Beta Feature
                   </span>
-                  <h3 className="font-bold text-slate-100">Steam & PSN Date Accuracy</h3>
+                  <h3 className="font-bold text-slate-100">Import and Export Logs</h3>
                 </div>
                 <p className="text-slate-400 pl-1 leading-relaxed">
-                  Improved last-played timestamp synchronization from Steam and PlayStation accounts into your log library. Also excluded video apps like Epix and Netflix.
-                  Run Steam & PSN Syncs again to pull in dates!
+                  From your user profile you can import and export csv files of logs. Still in beta but feel free to try it out!
                 </p>
               </div>
 
-            {/* Feature Section 4 */}
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[9px] font-extrabold rounded uppercase">
-                    DISPLAY NAMES
-                  </span>
-                  <h3 className="font-bold text-slate-100">Add Your Name!</h3>
-                </div>
-                <p className="text-slate-400 pl-1 leading-relaxed">
-                  You can now edit / add your name to your profile in addition to editing your avatar. Give it a try!
-                </p>
-              </div>
             </div>
 
             {/* Footer */}
