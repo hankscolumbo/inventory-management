@@ -48,7 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <OfflineBanner />
         <Navbar />
         <PullToRefresh>
-          <main className="flex-1 pb-20 md:pb-0">{children}</main>
+          <main className="flex-1 pb-28">{children}</main>
         </PullToRefresh>
         <BottomNav />
       </body>
