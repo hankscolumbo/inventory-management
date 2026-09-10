@@ -15,6 +15,7 @@ import PsnSyncModal from '@/components/PsnSyncModal';
 import PossibleDuplicatesSection from '@/components/PossibleDuplicatesSection';
 import EditNameModal from '@/components/EditNameModal';
 import ExportLogsButton from '@/components/ExportLogsButton';
+import ImportLogsModal from '@/components/ImportLogsModal';
 
 interface PageProps {
   params: Promise<{ username: string }>;
@@ -113,13 +114,18 @@ export default async function PublicProfilePage({ params }: PageProps) {
 
             {/* Sync & Action Controls */}
             {isProfileOwner && (
-              <div className="flex items-center gap-3 justify-center sm:justify-end shrink-0">
+              <div className="flex items-center gap-2 pt-2 sm: pt-0 justify-center sm:justify-end shrink-0">
+                {/*<div className="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-300 font-bold flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-purple-400" />
+                <span>{totalLogged} {totalLogged === 1 ? 'Game' : 'Games'} Logged</span>
+                </div>*/}
                 <SteamSyncModal steamId={user.steamId} isOwner={isProfileOwner} />
                 <PsnSyncModal
                   psnNpsso={user.psnNpsso}
                   psnOnlineId={user.psnOnlineId}
                   isOwner={isProfileOwner}
                 />
+                <ImportLogsModal />
                 <ExportLogsButton />
                 <SignOutButton />
               </div>

@@ -66,7 +66,7 @@ export default async function Navbar() {
                                 />
                             ) : (
                                 <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white uppercase">
-                                    {username ? `{$username}` : (session.user?.name || 'U')[0]}
+                                    {username ? `${username}`[0] : (session.user?.name || 'U')[0]}
                                 </div>
                             )}
                             <span className="hidden sm:inline">

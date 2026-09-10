@@ -76,7 +76,7 @@ model Comment {
   user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   logId         String?
-  log         GameLog?    @relation(fields: [logId], references: [id], onDelete: Cascade)
+  log           GameLog?    @relation(fields: [logId], references: [id], onDelete: Cascade)
 
   customListId  String?
   customList    CustomList? @relation(fields: [customListId], references: [id], onDelete: Cascade)
@@ -106,6 +106,25 @@ model Reaction {
   @@index([customListId])
 }
 
+model Game {
+  igdbId      Int      @id
+  name        String
+  summary     String?  @db.Text
+  coverUrl    String?
+  releaseYear Int?
+  genres      String[]
+  developers  String[]
+  platforms   String[]
+
+  steamAppId      Int?
+  psnTitleIds     String[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  logs        GameLog[]
+}
+
 model GameLog {
   id              String   @id @default(cuid())
   userId          String
@@ -132,6 +151,8 @@ model GameLog {
 
   comments        Comment[]
   reactions       Reaction[]
+
+  game            Game?    @relation(fields: [igdbId], references: [igdbId], onDelete: SetNull)
 
   @@unique([userId, steamAppId])
   @@unique([userId, igdbId])

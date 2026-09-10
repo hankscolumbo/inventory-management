@@ -28,13 +28,7 @@ interface GameLog {
 }
 
 export function getGameLogHref(log: GameLog): string {
-    if (log.igdbId) {
-        return `/game/${log.igdbId}`;
-    }
-    if (log.steamAppId) {
-        return `/game/${log.steamAppId}?source=steam`;
-    }
-    return '#';
+return `/log/${log.id}`;
 }
 
 export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {

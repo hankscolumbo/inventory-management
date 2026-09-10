@@ -65,6 +65,8 @@ export default async function LogDetailsPage({ params }: LogPageProps) {
 
     const displayName = log.user.name || log.user.username || 'User';
 
+    const isUnmatched = log.igdbId === -1;
+
     return (
         <main className="max-w-4xl mx-auto px-6 py-10 space-y-8">
             {/* Navigation & Edit Controls */}
@@ -265,6 +267,13 @@ export default async function LogDetailsPage({ params }: LogPageProps) {
                 comments={log.comments}
                 currentUserId={session?.user?.id}
             />
+
+        
+        {isUnmatched && (
+          <span className="mt-2 text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700">
+            Custom Entry
+          </span>
+        )}
         </main>
     );
 }
