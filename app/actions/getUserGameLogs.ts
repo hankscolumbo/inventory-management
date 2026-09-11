@@ -1,4 +1,3 @@
-// app/actions/getUserGameLogs.ts
 'use server';
 
 import { auth } from '@/lib/auth';
@@ -6,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 
 export interface SimpleGameLog {
   id: string;
+  igdbId?: number | null;
   gameTitle: string;
   coverUrl: string | null;
   status: string;
@@ -33,14 +33,15 @@ export async function getUserGameLogs(query?: string, excludeLogId?: string): Pr
     },
     select: {
       id: true,
+      igdbId: true,
       gameTitle: true,
       coverUrl: true,
       status: true,
       playtimeHours: true,
     },
-    take: 15,
     orderBy: { updatedAt: 'desc' },
   });
 
   return logs;
 }
+

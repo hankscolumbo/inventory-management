@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { triggerHaptic } from '@/lib/haptics';
 import GameCardActions from '@/components/GameCardActions';
+import { getUserGameLogs } from '@/app/actions/getUserGameLogs';
 
 const PAGE_SIZE_OPTIONS = [18, 24, 36, 48];
 
@@ -55,20 +56,44 @@ function BrowseContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // 1. Read state directly from URL parameters
+  // URL State
   const sort = searchParams.get('sort') || SORT_OPTIONS[0].value;
   const platform = searchParams.get('platform');
   const genre = searchParams.get('genre');
   const decade = searchParams.get('decade');
   const limit = searchParams.get('limit') || '24';
 
-  // 2. Local state only for infinite scrolling / data holding
   const [games, setGames] = useState<BrowseGame[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
-  // 3. Helper to update URL when a filter changes
+  // Status Lookup Maps
+  const [statusByIgdb, setStatusByIgdb] = useState<Map<number, string>>(new Map());
+  const [statusByTitle, setStatusByTitle] = useState<Map<string, string>>(new Map());
+
+  // Server Action runs session check on server automatically
+  useEffect(() => {
+    getUserGameLogs().then((logs) => {
+      if (!logs || logs.length === 0) return;
+
+      const igdbMap = new Map<number, string>();
+      const titleMap = new Map<string, string>();
+
+      logs.forEach((log) => {
+        if (log.igdbId) {
+          igdbMap.set(log.igdbId, log.status);
+        }
+        if (log.gameTitle) {
+          titleMap.set(log.gameTitle.trim().toLowerCase(), log.status);
+        }
+      });
+
+      setStatusByIgdb(igdbMap);
+      setStatusByTitle(titleMap);
+    });
+  }, []);
+
   const updateFilter = (key: string, value: string | null) => {
     triggerHaptic('light');
     const current = new URLSearchParams(Array.from(searchParams.entries()));
@@ -79,7 +104,6 @@ function BrowseContent() {
       current.delete(key);
     }
 
-    // Push new URL (scroll: false prevents jumping to top of page unnecessarily)
     router.push(`${pathname}?${current.toString()}`, { scroll: false });
   };
 
@@ -87,7 +111,6 @@ function BrowseContent() {
     setLoading(true);
     const currentPage = resetPage ? 1 : page;
 
-    // Use current URL searchParams but override pagination
     const params = new URLSearchParams(Array.from(searchParams.entries()));
     if (!params.has('sort')) params.set('sort', SORT_OPTIONS[0].value);
     if (!params.has('limit')) params.set('limit', '24');
@@ -108,7 +131,6 @@ function BrowseContent() {
     }
   };
 
-  // 4. Re-fetch from page 1 whenever the URL search parameters change
   useEffect(() => {
     fetchGames(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -127,7 +149,7 @@ function BrowseContent() {
       <button
         type="button"
         onClick={() => onSelect(null)}
-        className={`shrink-0 snap-start px-3 py-1.5 rounded-full text-xs font-bold transition border ${
+        className={`shrink-0 snap-start px-3 py-1.5 rounded-full text-xs font-bold transition border cursor-pointer ${
           selectedValue === null
             ? 'bg-purple-600 border-purple-500 text-white'
             : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
@@ -140,7 +162,7 @@ function BrowseContent() {
           key={item.id}
           type="button"
           onClick={() => onSelect(item.id)}
-          className={`shrink-0 snap-start px-3 py-1.5 rounded-full text-xs font-bold transition border ${
+          className={`shrink-0 snap-start px-3 py-1.5 rounded-full text-xs font-bold transition border cursor-pointer ${
             selectedValue === item.id
               ? 'bg-purple-600 border-purple-500 text-white'
               : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
@@ -201,53 +223,87 @@ function BrowseContent() {
 
       {/* Results Grid */}
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 pt-4">
-        {games.map((game, index) => (
-          <div key={`${game.id}-${index}`} className="relative group flex flex-col justify-between gap-1.5">
-            <div className="flex flex-col gap-1.5">
-              <div className="relative aspect-[3/4] bg-slate-900 border border-slate-800 rounded-xl overflow-hidden group">
-                <Link href={`/game/${game.id}`} className="block w-full h-full">
-                  {game.coverUrl ? (
-                    <img
-                      src={game.coverUrl}
-                      alt={game.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-600">
-                      🎮
+        {games.map((game, index) => {
+          const rawStatus =
+            statusByIgdb.get(game.id) ||
+            statusByTitle.get(game.name.trim().toLowerCase());
+
+          const normalized = rawStatus ? rawStatus.trim().toUpperCase().replace(/_/g, ' ') : null;
+          const isPlayed = normalized === 'PLAYED';
+          const isPlaying = normalized === 'PLAYING';
+          const isWantToPlay = normalized === 'WANT TO PLAY';
+
+          return (
+            <div key={`${game.id}-${index}`} className="relative group flex flex-col justify-between gap-1.5">
+              <div className="flex flex-col gap-1.5">
+                <div className="relative aspect-[3/4] bg-slate-900 border border-slate-800 rounded-xl overflow-hidden group">
+                  <Link href={`/game/${game.id}`} className="block w-full h-full">
+                    {game.coverUrl ? (
+                      <img
+                        src={game.coverUrl}
+                        alt={game.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-slate-600">
+                        🎮
+                      </div>
+                    )}
+                  </Link>
+
+                  {/* User Logged Status Badge */}
+                  {rawStatus && (
+                    <div className="absolute top-1.5 right-1.5 z-10 pointer-events-none">
+                      {isPlayed ? (
+                        <span className="px-1.5 py-0.5 bg-emerald-950/80 backdrop-blur border border-emerald-500/40 text-emerald-400 text-[9px] font-extrabold rounded shadow">
+                          PLAYED
+                        </span>
+                      ) : isPlaying ? (
+                        <span className="px-1.5 py-0.5 bg-purple-950/80 backdrop-blur border border-purple-500/40 text-purple-300 text-[9px] font-extrabold rounded shadow">
+                          PLAYING
+                        </span>
+                      ) : isWantToPlay ? (
+                        <span className="px-1.5 py-0.5 bg-blue-950/80 backdrop-blur border border-blue-500/40 text-blue-300 text-[9px] font-extrabold rounded shadow">
+                          WANT TO PLAY
+                        </span>
+                      ) : null}
                     </div>
                   )}
-                </Link>
 
-                {game.rating && (
-                  <div className="absolute top-1.5 right-1.5 bg-slate-950/80 backdrop-blur border border-emerald-500/30 text-emerald-400 text-[9px] font-extrabold px-1.5 py-0.5 rounded flex items-center gap-1 pointer-events-none">
-                    ★ {game.rating}
-                  </div>
-                )}
+                  
+                  {/* Game Rating Badge */}
+                  {/*
+                  {game.rating && (
+                    <div className="absolute top-1.5 left-1.5 bg-slate-950/80 backdrop-blur border border-emerald-500/30 text-emerald-400 text-[9px] font-extrabold px-1.5 py-0.5 rounded flex items-center gap-1 pointer-events-none">
+                      ★ {game.rating}
+                    </div>
+                  )}
+                  */}
+                </div>
+                
+                <Link href={`/game/${game.id}`} className="group-hover:text-purple-400 transition">
+                  <p className="text-[11px] font-bold text-slate-200 line-clamp-1 leading-tight">
+                    {game.name}
+                  </p>
+                  {game.releaseYear && (
+                    <p className="text-[9px] text-slate-500">{game.releaseYear}</p>
+                  )}
+                </Link>
               </div>
 
-              <Link href={`/game/${game.id}`} className="group-hover:text-purple-400 transition">
-                <p className="text-[11px] font-bold text-slate-200 line-clamp-1 leading-tight">
-                  {game.name}
-                </p>
-                {game.releaseYear && (
-                  <p className="text-[9px] text-slate-500">{game.releaseYear}</p>
-                )}
-              </Link>
+              <div className="pt-0.5">
+                <GameCardActions
+                  item={{
+                    gameTitle: game.name,
+                    coverUrl: game.coverUrl,
+                    igdbId: game.id,
+                  }}
+                />
+              </div>
             </div>
-
-            <div className="pt-0.5">
-              <GameCardActions
-                item={{
-                  gameTitle: game.name,
-                  coverUrl: game.coverUrl,
-                  igdbId: game.id,
-                }}
-              />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {!loading && games.length === 0 && (
@@ -265,7 +321,7 @@ function BrowseContent() {
               fetchGames(false);
             }}
             disabled={loading}
-            className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 text-xs font-bold rounded-xl transition shadow-lg border border-slate-700"
+            className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 text-xs font-bold rounded-xl transition shadow-lg border border-slate-700 cursor-pointer"
           >
             {loading ? 'Loading...' : 'Load More Games'}
           </button>
@@ -277,12 +333,16 @@ function BrowseContent() {
 
 export default function BrowsePage() {
   return (
-    <Suspense fallback={
-      <div className="max-w-6xl mx-auto py-12 text-center text-slate-500 text-sm">
-        Loading Browse...
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="max-w-6xl mx-auto py-12 text-center text-slate-500 text-sm">
+          Loading Browse...
+        </div>
+      }
+    >
       <BrowseContent />
     </Suspense>
   );
 }
+
+
