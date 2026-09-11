@@ -1,4 +1,4 @@
-  'use server';
+'use server';
 
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
@@ -95,7 +95,7 @@ export async function logGame(input: LogInput) {
       ? parsedPlayedOn
       : null;
 
-    // 2. Sequential Lookup Priority (Uses user.id instead of session.user.id)
+    // 2. Sequential Lookup Priority
     let existingLog = null;
 
     if (logId) {
@@ -139,16 +139,30 @@ export async function logGame(input: LogInput) {
           playedOn: validPlayedOn,
           platforms,
           playtimeHours: input.playtimeHours ?? null,
-          ...(igdbId && { igdbId }),
           ...(steamAppId && { steamAppId }),
           isOwned: input.isOwned ?? existingLog.isOwned,
+          
+          ...(igdbId && {
+            game: {
+              connectOrCreate: {
+                where: { igdbId: igdbId },
+                create: {
+                  igdbId: igdbId,
+                  name: input.gameTitle,
+                  coverUrl: input.coverUrl,
+                },
+              },
+            },
+          }),
         },
       });
     } else {
       await prisma.gameLog.create({
         data: {
-          userId: user.id,
-          igdbId,
+          // ✨ FIX: Use relational 'connect' syntax for User instead of scalar 'userId: user.id'
+          user: {
+            connect: { id: user.id }
+          },
           steamAppId,
           gameTitle: input.gameTitle,
           coverUrl: input.coverUrl,
@@ -161,6 +175,20 @@ export async function logGame(input: LogInput) {
           isOwned: input.isOwned ?? false,
           psnTitleIds: [],
           playedOn: validPlayedOn,
+          
+          // ✨ FIX: Simplified condition to keep Prisma strictly in 'Checked' mode
+          ...(igdbId && {
+            game: {
+              connectOrCreate: {
+                where: { igdbId: igdbId },
+                create: {
+                  igdbId: igdbId,
+                  name: input.gameTitle,
+                  coverUrl: input.coverUrl,
+                },
+              },
+            },
+          }),
         },
       });
     }
