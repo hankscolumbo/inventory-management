@@ -1,12 +1,12 @@
-// app/browse/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { triggerHaptic } from '@/lib/haptics';
 import GameCardActions from '@/components/GameCardActions';
 
-const PAGE_SIZE = 24;
+const PAGE_SIZE_OPTIONS = [18, 24, 36, 48];
 
 const SORT_OPTIONS = [
   { label: 'Highest Rated', value: 'total_rating desc' },
@@ -50,38 +50,55 @@ interface BrowseGame {
   rating: number | null;
 }
 
-export default function BrowsePage() {
+function BrowseContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // 1. Read state directly from URL parameters
+  const sort = searchParams.get('sort') || SORT_OPTIONS[0].value;
+  const platform = searchParams.get('platform');
+  const genre = searchParams.get('genre');
+  const decade = searchParams.get('decade');
+  const limit = searchParams.get('limit') || '24';
+
+  // 2. Local state only for infinite scrolling / data holding
   const [games, setGames] = useState<BrowseGame[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
-  // Filters State
-  const [sort, setSort] = useState<string>(SORT_OPTIONS[0].value);
-  const [platform, setPlatform] = useState<string | null>(null);
-  const [genre, setGenre] = useState<string | null>(null);
-  const [decade, setDecade] = useState<string | null>(null);
+  // 3. Helper to update URL when a filter changes
+  const updateFilter = (key: string, value: string | null) => {
+    triggerHaptic('light');
+    const current = new URLSearchParams(Array.from(searchParams.entries()));
+
+    if (value) {
+      current.set(key, value);
+    } else {
+      current.delete(key);
+    }
+
+    // Push new URL (scroll: false prevents jumping to top of page unnecessarily)
+    router.push(`${pathname}?${current.toString()}`, { scroll: false });
+  };
 
   const fetchGames = async (resetPage = false) => {
     setLoading(true);
     const currentPage = resetPage ? 1 : page;
 
-    const params = new URLSearchParams({
-      sort,
-      page: currentPage.toString(),
-      limit: PAGE_SIZE.toString(),
-    });
-
-    if (platform) params.append('platform', platform);
-    if (genre) params.append('genre', genre);
-    if (decade) params.append('decade', decade);
+    // Use current URL searchParams but override pagination
+    const params = new URLSearchParams(Array.from(searchParams.entries()));
+    if (!params.has('sort')) params.set('sort', SORT_OPTIONS[0].value);
+    if (!params.has('limit')) params.set('limit', '24');
+    params.set('page', currentPage.toString());
 
     try {
       const res = await fetch(`/api/browse?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         setGames((prev) => (resetPage ? data : [...prev, ...data]));
-        setHasMore(data.length === PAGE_SIZE);
+        setHasMore(data.length === Number(limit));
         setPage(currentPage + 1);
       }
     } catch (error) {
@@ -91,10 +108,11 @@ export default function BrowsePage() {
     }
   };
 
+  // 4. Re-fetch from page 1 whenever the URL search parameters change
   useEffect(() => {
     fetchGames(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sort, platform, genre, decade]);
+  }, [searchParams]);
 
   const FilterRow = ({
     items,
@@ -108,10 +126,7 @@ export default function BrowsePage() {
     <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide snap-x touch-pan-x -mx-4 px-4">
       <button
         type="button"
-        onClick={() => {
-          triggerHaptic('light');
-          onSelect(null);
-        }}
+        onClick={() => onSelect(null)}
         className={`shrink-0 snap-start px-3 py-1.5 rounded-full text-xs font-bold transition border ${
           selectedValue === null
             ? 'bg-purple-600 border-purple-500 text-white'
@@ -124,10 +139,7 @@ export default function BrowsePage() {
         <button
           key={item.id}
           type="button"
-          onClick={() => {
-            triggerHaptic('light');
-            onSelect(item.id);
-          }}
+          onClick={() => onSelect(item.id)}
           className={`shrink-0 snap-start px-3 py-1.5 rounded-full text-xs font-bold transition border ${
             selectedValue === item.id
               ? 'bg-purple-600 border-purple-500 text-white'
@@ -142,97 +154,108 @@ export default function BrowsePage() {
 
   return (
     <div className="max-w-6xl mx-auto py-6 px-4 space-y-6">
-      {/* Header & Sort */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h1 className="text-xl font-bold text-white">Browse Games</h1>
 
-        <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1">
-          <span className="text-xs text-slate-400">Sort by:</span>
-          <select
-            value={sort}
-            onChange={(e) => {
-              triggerHaptic('light');
-              setSort(e.target.value);
-            }}
-            className="bg-transparent text-xs text-white font-bold focus:outline-none py-1.5 cursor-pointer appearance-none"
-          >
-            {SORT_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value} className="bg-slate-900">
-                {opt.label}
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Sort Dropdown */}
+          <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1">
+            <span className="text-xs text-slate-400">Sort:</span>
+            <select
+              value={sort}
+              onChange={(e) => updateFilter('sort', e.target.value)}
+              className="bg-transparent text-xs text-white font-bold focus:outline-none py-1.5 cursor-pointer appearance-none"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value} className="bg-slate-900">
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Items Per Page Dropdown */}
+          <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1">
+            <span className="text-xs text-slate-400">Show:</span>
+            <select
+              value={limit}
+              onChange={(e) => updateFilter('limit', e.target.value)}
+              className="bg-transparent text-xs text-white font-bold focus:outline-none py-1.5 cursor-pointer appearance-none"
+            >
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size} className="bg-slate-900">
+                  {size} games
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
       {/* Filter Rows */}
       <div className="space-y-3">
-        <FilterRow items={PLATFORMS} selectedValue={platform} onSelect={setPlatform} />
-        <FilterRow items={GENRES} selectedValue={genre} onSelect={setGenre} />
-        <FilterRow items={DECADES} selectedValue={decade} onSelect={setDecade} />
+        <FilterRow items={PLATFORMS} selectedValue={platform} onSelect={(val) => updateFilter('platform', val)} />
+        <FilterRow items={GENRES} selectedValue={genre} onSelect={(val) => updateFilter('genre', val)} />
+        <FilterRow items={DECADES} selectedValue={decade} onSelect={(val) => updateFilter('decade', val)} />
       </div>
 
       {/* Results Grid */}
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 pt-4">
         {games.map((game, index) => (
-          <div key={`${game.id}-${index}`} className="relative group flex flex-col gap-1.5">
-            <div className="flex flex-col gap-5">
-            <div className="relative aspect-[3/4] bg-slate-900 border border-slate-800 rounded-xl overflow-hidden group">
-              <Link href={`/game/${game.id}`} className="block w-full h-full">
-                {game.coverUrl ? (
-                  <img
-                    src={game.coverUrl}
-                    alt={game.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-600">
-                    🎮
+          <div key={`${game.id}-${index}`} className="relative group flex flex-col justify-between gap-1.5">
+            <div className="flex flex-col gap-1.5">
+              <div className="relative aspect-[3/4] bg-slate-900 border border-slate-800 rounded-xl overflow-hidden group">
+                <Link href={`/game/${game.id}`} className="block w-full h-full">
+                  {game.coverUrl ? (
+                    <img
+                      src={game.coverUrl}
+                      alt={game.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-600">
+                      🎮
+                    </div>
+                  )}
+                </Link>
+
+                {game.rating && (
+                  <div className="absolute top-1.5 right-1.5 bg-slate-950/80 backdrop-blur border border-emerald-500/30 text-emerald-400 text-[9px] font-extrabold px-1.5 py-0.5 rounded flex items-center gap-1 pointer-events-none">
+                    ★ {game.rating}
                   </div>
                 )}
-              </Link>
-
-              {/* Rating Badge */}
-              {game.rating && (
-                <div className="absolute top-1.5 right-1.5 bg-slate-950/80 backdrop-blur border border-emerald-500/30 text-emerald-400 text-[9px] font-extrabold px-1.5 py-0.5 rounded flex items-center gap-1 pointer-events-none">
-                  ★ {game.rating}
-                </div>
-              )}
-            </div>
-
-            <Link href={`/game/${game.id}`} className="group-hover:text-purple-400 transition">
-              <p className="text-[11px] font-bold text-slate-200 line-clamp-1 leading-tight">
-                {game.name}
-              </p>
-              {game.releaseYear && (
-                <p className="text-[9px] text-slate-500">{game.releaseYear}</p>
-              )}
-            </Link>
-          </div>
-
-              {/* Action Buttons */}
-              <div className="pt-0.5">
-                <GameCardActions
-                  item={{
-                    igdbId: game.id,
-                    gameTitle: game.name,
-                    coverUrl: game.coverUrl,
-                  }}
-                />
               </div>
+
+              <Link href={`/game/${game.id}`} className="group-hover:text-purple-400 transition">
+                <p className="text-[11px] font-bold text-slate-200 line-clamp-1 leading-tight">
+                  {game.name}
+                </p>
+                {game.releaseYear && (
+                  <p className="text-[9px] text-slate-500">{game.releaseYear}</p>
+                )}
+              </Link>
             </div>
+
+            <div className="pt-0.5">
+              <GameCardActions
+                item={{
+                  gameTitle: game.name,
+                  coverUrl: game.coverUrl,
+                  igdbId: game.id,
+                }}
+              />
+            </div>
+          </div>
         ))}
       </div>
 
-      {/* Empty State */}
       {!loading && games.length === 0 && (
         <div className="py-12 text-center text-slate-500 text-xs">
           No games found matching these exact filters. Try broadening your search.
         </div>
       )}
 
-      {/* Load More Button */}
       {hasMore && games.length > 0 && (
         <div className="flex justify-center pt-8">
           <button
@@ -252,3 +275,14 @@ export default function BrowsePage() {
   );
 }
 
+export default function BrowsePage() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-6xl mx-auto py-12 text-center text-slate-500 text-sm">
+        Loading Browse...
+      </div>
+    }>
+      <BrowseContent />
+    </Suspense>
+  );
+}

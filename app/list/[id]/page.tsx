@@ -1,5 +1,5 @@
 // app/list/[id]/page.tsx
-import { auth } from '@/lib/auth';
+import { getCurrentDbUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -20,9 +20,11 @@ interface Props {
 
 export default async function ListPage({ params }: Props) {
   const { id } = await params;
-  const session = await auth();
 
-  // 1. Fetch List Items, Social Data, and User Logs in Parallel
+  // 1. Fetch current user (memoized request-wide)
+  const currentUser = await getCurrentDbUser();
+
+  // 2. Fetch List Items, Social Data, and User Logs in Parallel
   const [list, userLogs, userLists, isFollowingRecord] = await Promise.all([
     prisma.customList.findUnique({
       where: { id },
@@ -42,10 +44,10 @@ export default async function ListPage({ params }: Props) {
         },
       },
     }),
-    session?.user?.email
+    currentUser
       ? prisma.gameLog.findMany({
           where: {
-            user: { email: session.user.email },
+            userId: currentUser.id,
             OR: [
               { status: { in: ['PLAYED', 'PLAYING'] } },
               { playtimeHours: { gt: 0 } },
@@ -58,17 +60,17 @@ export default async function ListPage({ params }: Props) {
           },
         })
       : Promise.resolve([]),
-    session?.user?.email
+    currentUser
       ? prisma.customList.findMany({
-          where: { user: { email: session.user.email } },
+          where: { userId: currentUser.id },
           select: { id: true, title: true },
         })
       : Promise.resolve([]),
-    session?.user?.email
+    currentUser
       ? prisma.listFollow.findFirst({
           where: {
             customListId: id,
-            user: { email: session.user.email },
+            userId: currentUser.id,
           },
         })
       : Promise.resolve(null),
@@ -76,7 +78,7 @@ export default async function ListPage({ params }: Props) {
 
   if (!list) notFound();
 
-  // 2. Build Lookup Sets for Matching Played Status
+  // 3. Build Lookup Sets for Matching Played Status
   const playedIgdbIds = new Set(
     userLogs.map((log) => log.igdbId).filter((val): val is number => val !== null)
   );
@@ -97,10 +99,10 @@ export default async function ListPage({ params }: Props) {
     return playedTitles.has(item.gameTitle.trim().toLowerCase());
   };
 
-  const isOwner = session?.user?.email ? list?.user?.email === session.user.email : false;
+  const isOwner = currentUser?.id === list?.user?.id;
   const isFollowing = Boolean(isFollowingRecord);
 
-  // 3. Compute Progress Metrics
+  // 4. Compute Progress Metrics
   const totalCount = list.items.length;
   const playedCount = list.items.filter(checkIfPlayed).length;
   const unplayedCount = totalCount - playedCount;
@@ -109,7 +111,7 @@ export default async function ListPage({ params }: Props) {
   const authorName = list.user.username || list.user.name || 'User';
   const authorProfileHref = list.user.username ? `/u/${list.user.username}` : '#';
 
-  // 4. Precalculate isPlayed boolean for Client Component rendering
+  // 5. Precalculate isPlayed boolean for Client Component rendering
   const itemsWithPlayedStatus = list.items.map((item) => ({
     ...item,
     isPlayed: checkIfPlayed(item),
@@ -120,8 +122,8 @@ export default async function ListPage({ params }: Props) {
       {/* Top Header Layout */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch mb-8">
         {/* Left 2/3: Status Bar Progress Summary */}
-        <div className={session ? 'md:col-span-2' : 'md:col-span-3'}>
-          {session ? (
+        <div className={currentUser ? 'md:col-span-2' : 'md:col-span-3'}>
+          {currentUser ? (
             <div className="[&>div]:mb-0 h-full">
               <ListProgressSummary
                 playedCount={playedCount}
@@ -175,7 +177,7 @@ export default async function ListPage({ params }: Props) {
             </div>
           </div>
 
-          {session && !isOwner && (
+          {currentUser && !isOwner && (
             <div className="pt-2 border-t border-slate-800/80 flex flex-col gap-2">
               <FollowListButton
                 customListId={list.id}
@@ -192,7 +194,7 @@ export default async function ListPage({ params }: Props) {
         listId={list.id}
         items={itemsWithPlayedStatus}
         isOwner={isOwner}
-        session={session}
+        session={currentUser ? { user: currentUser } : null}
         userLists={userLists}
       />
 
@@ -202,15 +204,17 @@ export default async function ListPage({ params }: Props) {
           targetId={list.id}
           targetType="list"
           reactions={list.reactions}
-          currentUserId={session?.user?.id}
+          currentUserId={currentUser?.id}
         />
         <CommentSection
           targetId={list.id}
           targetType="list"
           comments={list.comments}
-          currentUserId={session?.user?.id}
+          currentUserId={currentUser?.id}
         />
       </div>
     </div>
   );
 }
+
+

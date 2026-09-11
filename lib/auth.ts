@@ -5,6 +5,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { cache } from "react";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -20,7 +21,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           name: profile.preferred_username || profile.login,
           email: profile.email,
           image: profile.picture,
-          username: profile.preferred_username || profile.login, // 👈 Saves to DB
+          username: profile.preferred_username || profile.login,
         };
       },
     }),
@@ -88,4 +89,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return session;
     },
   },
+});
+
+/**
+ * Request-memoized helper to fetch the current authenticated database user.
+ * Prevents duplicate Prisma queries within a single server rendering cycle.
+ */
+export const getCurrentDbUser = cache(async () => {
+  const session = await auth();
+  if (!session?.user?.id) return null;
+
+  return prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      name: true,
+      image: true,
+    },
+  });
 });
