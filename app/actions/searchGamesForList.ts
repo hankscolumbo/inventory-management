@@ -77,7 +77,7 @@ export async function searchGamesForList(query: string): Promise<SearchGameResul
         'Content-Type': 'text/plain',
       },
       cache: 'no-store',
-      body: `fields name, cover.url, first_release_date, game_type, version_parent, parent_game, total_rating_count, follows; search "${cleanQuery}"; where game_type = (0, 3, 4, 8, 9, 10, 11) & version_parent = null & parent_game = null & cover != null; limit 50;`,
+      body: `fields name, cover.url, first_release_date, game_type, version_parent, parent_game, total_rating_count, follows; search "${cleanQuery}"; where game_type = (0, 3, 4, 8, 9, 10, 11, 12); limit 50;`,
     });
 
     if (!res.ok) return [];
