@@ -1,11 +1,9 @@
-// components/NavbarClient.tsx
 'use client';
 
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { triggerHaptic } from '@/lib/haptics';
-import GameSearch from './GameSearch';
-import CommunitySearchBar from './CommunitySearchBar';
+import UnifiedNavbarSearch from './UnifiedNavbarSearch';
 
 interface NavbarClientProps {
   isAuthenticated: boolean;
@@ -27,10 +25,10 @@ export default function NavbarClient({
   const profileHref = username ? `/u/${username}` : '/profile';
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-950/80 backdrop-blur-md px-4 py-2.5">
+    <nav className="sticky top-0 z-50 w-full border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md px-4 py-2.5">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
-        {/* Back Button & Brand Title */}
-        <div className="flex items-center gap-3">
+        {/* Left: Back Button & Logo */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {!isHomePage && (
             <button
               type="button"
@@ -38,34 +36,29 @@ export default function NavbarClient({
                 triggerHaptic('light');
                 router.back();
               }}
-              className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-semibold rounded-lg transition cursor-pointer flex items-center gap-1.5"
+              className="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-semibold rounded-lg transition flex items-center gap-1"
             >
               <span>←</span>
-              <span>Back</span>
+              <span className="hidden sm:inline">Back</span>
             </button>
           )}
 
           <Link
             href="/"
             onClick={() => triggerHaptic('light')}
-            className="font-extrabold text-white text-base sm:text-lg tracking-tight hover:text-purple-400 transition truncate"
+            className="font-extrabold text-white text-base sm:text-lg tracking-tight hover:text-purple-400 transition"
           >
             playLog
           </Link>
         </div>
 
-        {/* Game Search */}
-        <div className="flex-1 max-w-xs sm:max-w-sm relative [&_input]:h-8 [&_input]:py-1 [&_input]:text-xs [&_svg]:top-1/2 [&_svg]:-translate-y-1/2">
-          <GameSearch />
+        {/* Center: Search Bar */}
+        <div className="flex-1 max-w-xs sm:max-w-md mx-2">
+          <UnifiedNavbarSearch />
         </div>
 
-        {/* Community Search Bar */}
-        <div className="hidden md:block flex-1 max-w-xs sm:max-w-sm relative [&_input]:h-8 [&_input]:py-1 [&_input]:text-xs [&_svg]:top-1/2 [&_svg]:-translate-y-1/2">
-          <CommunitySearchBar />
-        </div>
-
-        {/* Profile / Auth State */}
-        <div className="flex items-center justify-end text-xs font-semibold">
+        {/* Right: Auth Profile */}
+        <div className="flex items-center justify-end text-xs font-semibold shrink-0">
           {isAuthenticated ? (
             <Link
               href={profileHref}
@@ -79,7 +72,7 @@ export default function NavbarClient({
                   className="w-6 h-6 rounded-full border border-purple-500/50 object-cover"
                 />
               ) : (
-                <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white uppercase">
+                <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white uppercase text-[11px] font-bold">
                   {username ? username[0] : (fallbackName || 'U')[0]}
                 </div>
               )}
@@ -101,3 +94,4 @@ export default function NavbarClient({
     </nav>
   );
 }
+
