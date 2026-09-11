@@ -66,6 +66,7 @@ async function fetchIgdbReleases(whereClause: string, sortClause: string, limit 
 export async function getHomePageData() {
   const now = Math.floor(Date.now() / 1000);
   const oneWeekAgo = now - 7 * 24 * 60 * 60;
+  const twoWeeksAgo = now - 14 * 24 * 60 * 60;
   const twoWeeksAhead = now + 30 * 24 * 60 * 60; // Expanded to 30 days to capture more hyped titles
 
 
@@ -108,9 +109,9 @@ export async function getHomePageData() {
 
       // 🔽 Newly Released: Filter by rating_count > 0 or sort by rating_count desc
       fetchIgdbReleases(
-        `first_release_date >= ${oneWeekAgo} & first_release_date <= ${now}`,
-        'sort rating_count desc;',
-        18
+        `first_release_date >= ${twoWeeksAgo} & first_release_date <= ${now}`,
+        'sort hypes desc;',
+        24
       ),
 
 
@@ -118,7 +119,7 @@ export async function getHomePageData() {
       fetchIgdbReleases(
         `first_release_date > ${now} & first_release_date <= ${twoWeeksAhead}`,
         'sort hypes desc;',
-        18
+        24
       ),
 
 

@@ -172,7 +172,7 @@ export default async function HomePage() {
 
       <HomeSectionGrid
         title="Newly Released"
-        subtitle="Past 7 days"
+        subtitle="Past 14 days"
         accentColor="border-purple-500/40"
         items={newlyReleasedItems}
         itemsPerPage={6}
