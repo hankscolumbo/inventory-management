@@ -1,4 +1,3 @@
-// app/list/[id]/page.tsx
 import { getCurrentDbUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
@@ -48,15 +47,12 @@ export default async function ListPage({ params }: Props) {
       ? prisma.gameLog.findMany({
           where: {
             userId: currentUser.id,
-            OR: [
-              { status: { in: ['PLAYED', 'PLAYING'] } },
-              { playtimeHours: { gt: 0 } },
-            ],
           },
           select: {
             igdbId: true,
             steamAppId: true,
             gameTitle: true,
+            status: true,
           },
         })
       : Promise.resolve([]),
@@ -78,44 +74,64 @@ export default async function ListPage({ params }: Props) {
 
   if (!list) notFound();
 
-  // 3. Build Lookup Sets for Matching Played Status
-  const playedIgdbIds = new Set(
-    userLogs.map((log) => log.igdbId).filter((val): val is number => val !== null)
-  );
-  const playedSteamAppIds = new Set(
-    userLogs.map((log) => log.steamAppId).filter((val): val is number => val !== null)
-  );
-  const playedTitles = new Set(
-    userLogs.map((log) => log.gameTitle.trim().toLowerCase())
-  );
+  // 3. Build Lookup Maps for User Log Statuses
+  const statusByIgdb = new Map<number, string>();
+  const statusBySteam = new Map<number, string>();
+  const statusByTitle = new Map<string, string>();
 
-  const checkIfPlayed = (item: {
+  userLogs.forEach((log) => {
+    if (log.status) {
+      if (log.igdbId !== null) statusByIgdb.set(log.igdbId, log.status);
+      if (log.steamAppId !== null) statusBySteam.set(log.steamAppId, log.status);
+      if (log.gameTitle) statusByTitle.set(log.gameTitle.trim().toLowerCase(), log.status);
+    }
+  });
+
+  const getUserGameStatus = (item: {
     igdbId: number | null;
     steamAppId: number | null;
     gameTitle: string;
-  }) => {
-    if (item.igdbId !== null && playedIgdbIds.has(item.igdbId)) return true;
-    if (item.steamAppId !== null && playedSteamAppIds.has(item.steamAppId)) return true;
-    return playedTitles.has(item.gameTitle.trim().toLowerCase());
+  }): string | null => {
+    if (item.igdbId !== null && statusByIgdb.has(item.igdbId)) {
+      return statusByIgdb.get(item.igdbId)!;
+    }
+    if (item.steamAppId !== null && statusBySteam.has(item.steamAppId)) {
+      return statusBySteam.get(item.steamAppId)!;
+    }
+    const lowerTitle = item.gameTitle.trim().toLowerCase();
+    if (statusByTitle.has(lowerTitle)) {
+      return statusByTitle.get(lowerTitle)!;
+    }
+    return null;
   };
 
   const isOwner = currentUser?.id === list?.user?.id;
   const isFollowing = Boolean(isFollowingRecord);
 
-  // 4. Compute Progress Metrics
-  const totalCount = list.items.length;
-  const playedCount = list.items.filter(checkIfPlayed).length;
+  // 4. Map exact status flags for strictly: PLAYED, PLAYING, and WANT TO PLAY
+  const itemsWithStatus = list.items.map((item) => {
+    const rawStatus = getUserGameStatus(item);
+    const normalized = rawStatus ? rawStatus.trim().toUpperCase().replace(/_/g, ' ') : null;
+
+    const isPlayed = normalized === 'PLAYED' || normalized === 'PLAYING';
+    const isWantToPlay = normalized === 'WANT TO PLAY';
+
+    return {
+      ...item,
+      userStatus: rawStatus,
+      isPlayed,
+      isWantToPlay,
+    };
+  });
+
+  // 5. Compute Progress Metrics
+  const totalCount = itemsWithStatus.length;
+  const playedCount = itemsWithStatus.filter((item) => item.isPlayed).length;
   const unplayedCount = totalCount - playedCount;
   const percentage = totalCount > 0 ? Math.round((playedCount / totalCount) * 100) : 0;
 
   const authorName = list.user.username || list.user.name || 'User';
   const authorProfileHref = list.user.username ? `/u/${list.user.username}` : '#';
-
-  // 5. Precalculate isPlayed boolean for Client Component rendering
-  const itemsWithPlayedStatus = list.items.map((item) => ({
-    ...item,
-    isPlayed: checkIfPlayed(item),
-  }));
 
   return (
     <div className="max-w-6xl mx-auto py-8 px-4 space-y-8">
@@ -192,7 +208,7 @@ export default async function ListPage({ params }: Props) {
       {/* Full Width Editable/Interactive Game Cards Grid */}
       <EditableListGrid
         listId={list.id}
-        items={itemsWithPlayedStatus}
+        items={itemsWithStatus}
         isOwner={isOwner}
         session={currentUser ? { user: currentUser } : null}
         userLists={userLists}
@@ -216,5 +232,4 @@ export default async function ListPage({ params }: Props) {
     </div>
   );
 }
-
 

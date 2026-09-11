@@ -1,4 +1,3 @@
-// app/list/[id]/EditableListGrid.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -15,7 +14,9 @@ interface ListItem {
   steamAppId: number | null;
   note: string | null;
   position: number;
-  isPlayed: boolean;
+  userStatus?: string | null;
+  isPlayed?: boolean;
+  isWantToPlay?: boolean;
 }
 
 interface Props {
@@ -129,7 +130,7 @@ export default function EditableListGrid({
                 : 'hover:border-slate-700'
             }`}
           >
-            {/* Top Bar: Position Rank (Left), Played Status (Center), Delete Button (Right) */}
+            {/* Top Bar: Position Rank (Left), Played / Want to Play / Unplayed Status (Center), Delete Button (Right) */}
             <div className="absolute top-2 left-2 right-2 z-10 flex items-center justify-between pointer-events-none">
               <span className="px-2 py-0.5 bg-slate-950/90 text-purple-300 text-[10px] font-extrabold rounded-md border border-purple-800/80 shadow backdrop-blur-sm pointer-events-auto select-none">
                 #{rank}
@@ -139,11 +140,15 @@ export default function EditableListGrid({
                 <div className="absolute left-1/2 -translate-x-1/2 pointer-events-auto">
                   {item.isPlayed ? (
                     <span className="px-2 py-0.5 bg-emerald-500/90 text-white text-[10px] font-bold rounded-full shadow backdrop-blur-sm whitespace-nowrap select-none">
-                      ✓ Played
+                      PLAYED
+                    </span>
+                  ) : item.isWantToPlay ? (
+                    <span className="px-2 py-0.5 bg-blue-600/90 text-white text-[10px] font-bold rounded-full shadow backdrop-blur-sm whitespace-nowrap select-none">
+                      WANT TO PLAY
                     </span>
                   ) : (
                     <span className="px-2 py-0.5 bg-slate-950/80 text-slate-400 text-[10px] font-semibold rounded-full border border-slate-700/80 backdrop-blur-sm whitespace-nowrap select-none">
-                      Unplayed
+                      UNPLAYED
                     </span>
                   )}
                 </div>
@@ -274,3 +279,4 @@ export default function EditableListGrid({
     </div>
   );
 }
+
