@@ -271,13 +271,12 @@ export default function ProfileGameGrid({ logs }: { logs: GameLog[] }) {
                                             e.stopPropagation();
                                             setSelectedDealsGame(log);
                                         }}
-                                        className="absolute top-2 left-2 z-30 bg-emerald-600/90 hover:bg-emerald-500 text-white font-extrabold text-[9px] px-2 py-0.5 rounded border border-emerald-400/40 shadow-lg backdrop-blur-md transition flex items-center gap-1 group/badge"
+                                        className="absolute top-1.5 left-1.5 z-20 p-1.5 bg-slate-950/80 hover:bg-emerald-600 border border-slate-700/80 hover:border-emerald-400 text-slate-300 hover:text-white rounded-lg transition duration-150 backdrop-blur-sm shadow-md"
                                         title="Check Store Deals"
                                     >
-                                        <span>🏷️</span>
-                                        <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover/badge:max-w-xs transition-all duration-300 ease-in-out font-mono">
-                                            DEALS
-                                        </span>
+                                        <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                                            <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z" />
+                                        </svg>
                                     </button>
                                 )}
 
