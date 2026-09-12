@@ -1,4 +1,3 @@
-// components/AddToListModal.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -43,17 +42,33 @@ export default function AddToListModal({ game, userLists, customTrigger }: AddTo
     setMounted(true);
   }, []);
 
+  // Sync userLists prop to local state
   useEffect(() => {
     setLocalUserLists(userLists);
-    if (userLists.length > 0) {
-        if (!selectedListId) setSelectedListId(userLists[0]?.id || '');
-    } else {
-        // Default to create mode if user has no lists
-        setIsCreatingNewList(true);
-    }
   }, [userLists]);
 
- const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
+  // RESET STATE ON OPEN OR CLOSE
+  useEffect(() => {
+    if (isOpen) {
+      setFeedback(null);
+      setNote('');
+      setNewListTitle('');
+      
+      // Check length against localUserLists to ensure we are looking at the current data
+      if (localUserLists.length > 0) {
+        setIsCreatingNewList(false);
+        // Ensure selected list falls back to the first available if not set
+        if (!selectedListId) {
+          setSelectedListId(localUserLists[0]?.id || '');
+        }
+      } else {
+        // If they genuinely have 0 lists, force them into create mode
+        setIsCreatingNewList(true);
+      }
+    }
+  }, [isOpen, localUserLists, selectedListId]);
+
+  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setFeedback(null);
@@ -127,10 +142,6 @@ export default function AddToListModal({ game, userLists, customTrigger }: AddTo
         setFeedback({ type: 'success', message: 'Added to list successfully!' });
         setTimeout(() => {
           setIsOpen(false);
-          setFeedback(null);
-          setNote('');
-          setNewListTitle('');
-          setIsCreatingNewList(false);
           router.refresh();
         }, 1000);
       } else {
@@ -157,7 +168,7 @@ export default function AddToListModal({ game, userLists, customTrigger }: AddTo
           <button
             type="button"
             onClick={() => setIsOpen(false)}
-            className="text-slate-400 hover:text-white font-bold text-sm p-1"
+            className="text-slate-400 hover:text-white font-bold text-sm p-1 cursor-pointer"
           >
             ✕
           </button>
@@ -176,113 +187,113 @@ export default function AddToListModal({ game, userLists, customTrigger }: AddTo
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Target List Field (Select or Create Input) */}
-            <div>
-                <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-semibold text-slate-300">
-                        {isCreatingNewList ? 'New List Title' : 'Select Target List'}
-                    </label>
-
-                    {localUserLists.length > 0 && (
-                        <button
-                        type="button"
-                        onClick={() => {
-                            setIsCreatingNewList(!isCreatingNewList);
-                            setFeedback(null);
-                        }}
-                        className="text-[11px] font-bold text-purple-400 hover:underline"
-                        >
-                        {isCreatingNewList ? '← Select existing list' : '+ Create new list'}
-                        </button>
-                    )}
-                </div>
-
-                {isCreatingNewList ? (
-                    <input
-                        type="text"
-                        value={newListTitle}
-                        onChange={(e) => setNewListTitle(e.target.value)}
-                        placeholder="e.g. My Favorite RPGs of All Time"
-                        autoFocus
-                        className="w-full bg-slate-950 border border-slate-800 text-white text-xs px-3 py-2.5 rounded-xl focus:outline-none focus:border-purple-500"
-                        />
-                ) : (
-                    <select
-                        value={selectedListId}
-                        onChange={(e) => setSelectedListId(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 text-white text-xs px-3 py-2.5 rounded-xl focus:outline-none focus:border-purple-500"
-                        >
-                            {localUserLists.map((list) => (
-                                <option key={list.id} value={list.id}>
-                                    { list.title || list.name || 'Untitled List' }
-                                </option>
-                            ))}
-                        </select>
-                )}
-            </div>
-
-            {/* Note Input */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Custom Entry Note <span className="text-slate-500">(Optional)</span>
+          {/* Target List Field (Select or Create Input) */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-slate-300">
+                {isCreatingNewList ? 'New List Title' : 'Select Target List'}
               </label>
-              <textarea
-                rows={3}
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="e.g. Best soundtrack in the series, or rank thoughts..."
-                className="w-full bg-slate-950 border border-slate-800 text-white text-xs p-3 rounded-xl focus:outline-none focus:border-purple-500 resize-none"
-              />
+
+              {localUserLists.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreatingNewList(!isCreatingNewList);
+                    setFeedback(null);
+                  }}
+                  className="text-[11px] font-bold text-purple-400 hover:underline cursor-pointer"
+                >
+                  {isCreatingNewList ? '← Select existing list' : '+ Create new list'}
+                </button>
+              )}
             </div>
 
-            {/* Actions */}
-            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800/80">
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition"
+            {isCreatingNewList ? (
+              <input
+                type="text"
+                value={newListTitle}
+                onChange={(e) => setNewListTitle(e.target.value)}
+                placeholder="e.g. My Favorite RPGs of All Time"
+                autoFocus
+                className="w-full bg-slate-950 border border-slate-800 text-white text-xs px-3 py-2.5 rounded-xl focus:outline-none focus:border-purple-500"
+              />
+            ) : (
+              <select
+                value={selectedListId}
+                onChange={(e) => setSelectedListId(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 text-white text-xs px-3 py-2.5 rounded-xl focus:outline-none focus:border-purple-500 cursor-pointer"
               >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading || (!isCreatingNewList && !selectedListId)}
-                className="px-5 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-md transition"
-              >
-                {loading
-                 ? 'Processing...'
+                {localUserLists.map((list) => (
+                  <option key={list.id} value={list.id}>
+                    {list.title || list.name || 'Untitled List'}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {/* Note Input */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              Custom Entry Note <span className="text-slate-500">(Optional)</span>
+            </label>
+            <textarea
+              rows={3}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="e.g. Best soundtrack in the series, or rank thoughts..."
+              className="w-full bg-slate-950 border border-slate-800 text-white text-xs p-3 rounded-xl focus:outline-none focus:border-purple-500 resize-none"
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800/80">
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading || (!isCreatingNewList && !selectedListId)}
+              className="px-5 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 disabled:text-slate-400 text-white font-bold text-xs rounded-xl shadow-md transition cursor-pointer"
+            >
+              {loading
+                ? 'Processing...'
                 : isCreatingNewList
                 ? 'Create & Add'
                 : 'Add to List'}
-              </button>
-            </div>
-          </form>
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   ) : null;
 
   return (
     <>
-    {customTrigger ? (
+      {customTrigger ? (
         <div
-        onClick={(e) => {
+          onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
             setIsOpen(true);
-        }}
-        className="inline-block cursor-pointer w-full"
+          }}
+          className="inline-block cursor-pointer w-full"
         >
-            {customTrigger}
+          {customTrigger}
         </div>
-    ) : (
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5"
-      >
-        <span>📋</span> Add to List
-      </button>
-    )}
+      ) : (
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+          className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5 cursor-pointer"
+        >
+          <span>📋</span> Add to List
+        </button>
+      )}
 
       {mounted && modalContent && createPortal(modalContent, document.body)}
     </>

@@ -6,6 +6,7 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { triggerHaptic } from '@/lib/haptics';
 import GameCardActions from '@/components/GameCardActions';
 import { getUserGameLogs } from '@/app/actions/getUserGameLogs';
+import { getActiveUserLists } from '../actions/getUserLists';
 
 const PAGE_SIZE_OPTIONS = [18, 24, 36, 48];
 
@@ -71,6 +72,7 @@ function BrowseContent() {
   // Status Lookup Maps
   const [statusByIgdb, setStatusByIgdb] = useState<Map<number, string>>(new Map());
   const [statusByTitle, setStatusByTitle] = useState<Map<string, string>>(new Map());
+  const [userLists, setUserLists] = useState<{ id: string; title: string }[]>([]);
 
   // Server Action runs session check on server automatically
   useEffect(() => {
@@ -91,6 +93,12 @@ function BrowseContent() {
 
       setStatusByIgdb(igdbMap);
       setStatusByTitle(titleMap);
+    });
+
+    getActiveUserLists().then((lists) => {
+        if (Array.isArray(lists)) {
+            setUserLists(lists);
+        }
     });
   }, []);
 
@@ -299,6 +307,7 @@ function BrowseContent() {
                     coverUrl: game.coverUrl,
                     igdbId: game.id,
                   }}
+                  userLists={userLists}
                 />
               </div>
             </div>
