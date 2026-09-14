@@ -74,23 +74,32 @@ export async function updateListItemNote(
 }
 
 export async function updateItemPositions(
-  items: { id: string; position: number }[],
-  customListId: string
+  arg1: string | { id: string; position: number }[],
+  arg2?: string | { id: string; position: number }[]
 ) {
   const session = await auth();
   if (!session?.user) return { success: false, error: 'Unauthorized' };
 
-  try {
-    await prisma.$transaction(
-      items.map((item) =>
-        prisma.customListItem.update({
-          where: { id: item.id },
-          data: { position: item.position },
-        })
-      )
-    );
+  // Support both (customListId, items) and (items, customListId)
+  const items = Array.isArray(arg1) ? arg1 : Array.isArray(arg2) ? arg2 : [];
+  const customListId = typeof arg1 === 'string' ? arg1 : typeof arg2 === 'string' ? arg2 : undefined;
 
-    revalidatePath(`/list/${customListId}`);
+  try {
+    if (items.length > 0) {
+      await prisma.$transaction(
+        items.map((item) =>
+          prisma.customListItem.update({
+            where: { id: item.id },
+            data: { position: item.position },
+          })
+        )
+      );
+    }
+
+    if (customListId) {
+      revalidatePath(`/list/${customListId}`);
+    }
+    revalidatePath('/lists');
     return { success: true };
   } catch (error: any) {
     console.error('Error updating positions:', error);
