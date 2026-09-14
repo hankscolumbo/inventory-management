@@ -10,6 +10,12 @@ export interface SimpleGameLog {
   coverUrl: string | null;
   status: string;
   playtimeHours: number | null;
+  dlcs?: {
+    id: string;
+    igdbId: number;
+    name: string;
+    coverUrl?: string | null;
+  }[];
 }
 
 export async function getUserGameLogs(query?: string, excludeLogId?: string): Promise<SimpleGameLog[]> {
@@ -38,6 +44,14 @@ export async function getUserGameLogs(query?: string, excludeLogId?: string): Pr
       coverUrl: true,
       status: true,
       playtimeHours: true,
+      dlcs: {
+        select: {
+            id: true,
+            igdbId: true,
+            name: true,
+            coverUrl: true,
+        },
+      },
     },
     orderBy: { updatedAt: 'desc' },
   });

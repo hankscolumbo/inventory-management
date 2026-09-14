@@ -7,6 +7,9 @@ import Link from 'next/link';
 import LogGameButton from '@/components/LogGameButton';
 import ReactionsBar from '@/components/ReactionsBar';
 import CommentSection from '@/components/CommentSection';
+import ManageLogDlcsModal from '@/components/ManageLogDlcsModal';
+import LoggedDlcsDisplay from '@/components/LoggedDlcsDisplay';
+import LogDlcPills from '@/components/LogDlcPills';
 
 interface LogPageProps {
     params: Promise<{ id: string }>;
@@ -39,6 +42,7 @@ export default async function LogDetailsPage({ params }: LogPageProps) {
                     userId: true
                 }
             },
+            dlcs: true,
         },
     });
 
@@ -66,6 +70,8 @@ export default async function LogDetailsPage({ params }: LogPageProps) {
     const displayName = log.user.name || log.user.username || 'User';
 
     const isUnmatched = log.igdbId === -1;
+
+    const loggedDlcCount = log.dlcs?.length || 0;
 
     return (
         <main className="max-w-4xl mx-auto px-6 py-10 space-y-8">
@@ -175,6 +181,25 @@ export default async function LogDetailsPage({ params }: LogPageProps) {
                             <h1 className="text-2xl font-extrabold text-white">{log.gameTitle}</h1>
                         </div>
 
+                        {/* Log Actions / DLC Management Button */}
+      <div className="flex items-center gap-2 pt-2 border-t border-slate-800">
+        <LogDlcPills dlcs={log.dlcs} />
+        <ManageLogDlcsModal
+          gameLogId={log.id}
+          parentIgdbId={log.igdbId}
+          parentGameTitle={log.gameTitle}
+          parentCoverUrl={log.coverUrl}
+          customTrigger={
+            <button className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-medium text-[11px] rounded-lg transition flex items-center gap-1.5 cursor-pointer">
+              <span>🧩</span>
+              <span>{loggedDlcCount > 0 ? `DLCs (${loggedDlcCount})` : 'Add DLC'}</span>
+            </button>
+          }
+        />
+      </div>
+
+
+
                         {/* Badges */}
                         <div className="flex flex-wrap items-center gap-3 text-xs">
                             <span
@@ -254,6 +279,17 @@ export default async function LogDetailsPage({ params }: LogPageProps) {
                     </div>
                 )}
             </div>
+
+            <LoggedDlcsDisplay
+  gameLogId={log.id}
+  parentIgdbId={log.igdbId}
+  parentGameTitle={log.gameTitle}
+  parentCoverUrl={log.coverUrl}
+  dlcs={log.dlcs}
+  isOwner={session?.user?.id === log.userId}
+/>
+
+
             <ReactionsBar
                 targetId={log.id}
                 targetType="log"
@@ -268,12 +304,12 @@ export default async function LogDetailsPage({ params }: LogPageProps) {
                 currentUserId={session?.user?.id}
             />
 
-        
-        {isUnmatched && (
-          <span className="mt-2 text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700">
-            Custom Entry
-          </span>
-        )}
+
+            {isUnmatched && (
+                <span className="mt-2 text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700">
+                    Custom Entry
+                </span>
+            )}
         </main>
     );
 }

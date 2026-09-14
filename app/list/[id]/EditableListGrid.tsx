@@ -17,6 +17,7 @@ interface ListItem {
   userStatus?: string | null;
   isPlayed?: boolean;
   isWantToPlay?: boolean;
+  isDlc?: boolean;
 }
 
 interface Props {
@@ -136,22 +137,29 @@ export default function EditableListGrid({
                 #{rank}
               </span>
 
-              {session && (
+              {session && !item.isDlc && (
                 <div className="absolute left-1/2 -translate-x-1/2 pointer-events-auto">
                   {item.isPlayed ? (
-                    <span className="px-2 py-0.5 bg-emerald-500/90 text-white text-[10px] font-bold rounded-full shadow backdrop-blur-sm whitespace-nowrap select-none">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/90 text-emerald-10 text-[10px] font-extrabold rounded-md shadow-sm shrink-0 border border-emerald-700/80 backdrop-blur-sm select-none">
                       PLAYED
                     </span>
                   ) : item.isWantToPlay ? (
-                    <span className="px-2 py-0.5 bg-blue-600/90 text-white text-[10px] font-bold rounded-full shadow backdrop-blur-sm whitespace-nowrap select-none">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-600/90 text-blue-200 text-[10px] font-extrabold rounded-md shadow-sm shrink-0 border border-blue-700/80 backdrop-blur-sm select-none">
                       WANT TO PLAY
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 bg-slate-950/80 text-slate-400 text-[10px] font-semibold rounded-full border border-slate-700/80 backdrop-blur-sm whitespace-nowrap select-none">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-950/80 text-slate-200 text-[10px] font-extrabold rounded-md shadow-sm shrink-0 border border-slate-700/80 backdrop-blur-sm select-none">
                       UNPLAYED
                     </span>
                   )}
                 </div>
+              )}
+
+              {/* ✨ DISTINCT DLC BADGE */}
+              {item.isDlc && (
+                <span className="inline-flex items-center gap-1 bg-purple-950/80 border border-purple-500/50 text-purple-200 text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow-sm shrink-0 select-none">
+                  <span>DLC</span>
+                </span>
               )}
 
               {isOwner && (

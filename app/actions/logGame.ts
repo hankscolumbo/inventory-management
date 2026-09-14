@@ -4,6 +4,13 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
+export interface SelectedDlcInput {
+  igdbId: number;
+  name: string;
+  coverUrl?: string | null;
+  releaseYear?: number | null;
+}
+
 interface LogInput {
   logId?: string;
   gameId: number;
@@ -18,6 +25,7 @@ interface LogInput {
   isSteamApp?: boolean;
   platforms?: string[];
   playedOn: Date | string | null;
+  selectedDlcs?: SelectedDlcInput[];
 }
 
 export async function deleteGameLog(gameId: number) {
@@ -92,8 +100,8 @@ export async function logGame(input: LogInput) {
 
     const validPlayedOn =
       parsedPlayedOn && !isNaN(parsedPlayedOn.getTime())
-      ? parsedPlayedOn
-      : null;
+        ? parsedPlayedOn
+        : null;
 
     // 2. Sequential Lookup Priority
     let existingLog = null;
@@ -125,7 +133,48 @@ export async function logGame(input: LogInput) {
       });
     }
 
-    // 3. Update Existing or Create New
+    // 3. Upsert Parent Game & DLC Records
+    const dlcRecordIds: string[] = [];
+
+    if (igdbId) {
+      // Ensure the Parent Game exists in database first
+      const parentGame = await prisma.game.upsert({
+        where: { igdbId },
+        update: {
+          name: input.gameTitle,
+          coverUrl: input.coverUrl,
+        },
+        create: {
+          igdbId,
+          name: input.gameTitle,
+          coverUrl: input.coverUrl,
+        },
+      });
+
+      // Upsert any selected DLC items
+      if (input.selectedDlcs && input.selectedDlcs.length > 0) {
+        for (const dlc of input.selectedDlcs) {
+          const dlcRecord = await prisma.dLC.upsert({
+            where: { igdbId: Number(dlc.igdbId) },
+            update: {
+              name: dlc.name,
+              coverUrl: dlc.coverUrl,
+              releaseYear: dlc.releaseYear,
+            },
+            create: {
+              igdbId: Number(dlc.igdbId),
+              name: dlc.name,
+              coverUrl: dlc.coverUrl,
+              releaseYear: dlc.releaseYear,
+              gameIgdbId: parentGame.igdbId,
+            },
+          });
+          dlcRecordIds.push(dlcRecord.id);
+        }
+      }
+    }
+
+    // 4. Update Existing or Create New GameLog
     if (existingLog) {
       await prisma.gameLog.update({
         where: { id: existingLog.id },
@@ -141,17 +190,16 @@ export async function logGame(input: LogInput) {
           playtimeHours: input.playtimeHours ?? null,
           ...(steamAppId && { steamAppId }),
           isOwned: input.isOwned ?? existingLog.isOwned,
-          
+
           ...(igdbId && {
             game: {
-              connectOrCreate: {
-                where: { igdbId: igdbId },
-                create: {
-                  igdbId: igdbId,
-                  name: input.gameTitle,
-                  coverUrl: input.coverUrl,
-                },
-              },
+              connect: { igdbId },
+            },
+          }),
+
+          ...(input.selectedDlcs !== undefined && {
+            dlcs: {
+              set: dlcRecordIds.map((id) => ({ id })),
             },
           }),
         },
@@ -159,9 +207,8 @@ export async function logGame(input: LogInput) {
     } else {
       await prisma.gameLog.create({
         data: {
-          // ✨ FIX: Use relational 'connect' syntax for User instead of scalar 'userId: user.id'
           user: {
-            connect: { id: user.id }
+            connect: { id: user.id },
           },
           steamAppId,
           gameTitle: input.gameTitle,
@@ -175,18 +222,16 @@ export async function logGame(input: LogInput) {
           isOwned: input.isOwned ?? false,
           psnTitleIds: [],
           playedOn: validPlayedOn,
-          
-          // ✨ FIX: Simplified condition to keep Prisma strictly in 'Checked' mode
+
           ...(igdbId && {
             game: {
-              connectOrCreate: {
-                where: { igdbId: igdbId },
-                create: {
-                  igdbId: igdbId,
-                  name: input.gameTitle,
-                  coverUrl: input.coverUrl,
-                },
-              },
+              connect: { igdbId },
+            },
+          }),
+
+          ...(dlcRecordIds.length > 0 && {
+            dlcs: {
+              connect: dlcRecordIds.map((id) => ({ id })),
             },
           }),
         },
@@ -197,9 +242,12 @@ export async function logGame(input: LogInput) {
       revalidatePath('/u/' + user.username);
     }
     revalidatePath('/profile');
+    revalidatePath('/browse');
     return { success: true };
   } catch (error: any) {
     console.error('Error saving log to database:', error);
     return { success: false, error: error?.message || 'Failed to save log' };
   }
 }
+
+

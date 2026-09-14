@@ -28,8 +28,8 @@ const AVAILABLE_PLATFORMS = [
   //'N64',
   //'Super Nintendo / Famicom',
   //'Nintendo Entertainment System',
-  'Nintendo 2DS / 3DS',
-  'Nintendo DS / DSi',
+  //'Nintendo 2DS / 3DS',
+  //'Nintendo DS / DSi',
   //'Playstation Vita',
   //'PSP',
   //'Sega Genesis',
@@ -37,7 +37,7 @@ const AVAILABLE_PLATFORMS = [
   'VR',
   'Mobile',
   //'Analogue Pocket',
-  'Playdate',
+  //'Playdate',
 ];
 
 interface LogModalProps {

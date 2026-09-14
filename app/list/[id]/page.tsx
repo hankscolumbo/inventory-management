@@ -29,7 +29,17 @@ export default async function ListPage({ params }: Props) {
       where: { id },
       include: {
         items: {
-          orderBy: { position: 'asc' },
+            select: {
+                id: true,
+                gameTitle: true,
+                coverUrl: true,
+                igdbId: true,
+                isDlc: true,
+                note: true,
+                position: true,
+                steamAppId: true,
+            },
+            orderBy: { position: 'asc' },
         },
         user: { select: { id: true, username: true, name: true, image: true, email: true } },
         comments: {

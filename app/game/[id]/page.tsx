@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import LogGameButton from '@/components/LogGameButton';
 import AddToListModal from '@/components/AddToListModal';
+import DLCGridModal from '@/components/DLCGridModal';
 
 interface GamePageProps {
   params: Promise<{
@@ -303,20 +304,20 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
 
   const communityLogs = communityConditions.length > 0
     ? await prisma.gameLog.findMany({
-        where: { OR: communityConditions },
-        select: {
-          id: true,
-          status: true,
-          user: {
-            select: {
-              id: true,
-              username: true,
-              name: true,
-              image: true,
-            },
+      where: { OR: communityConditions },
+      select: {
+        id: true,
+        status: true,
+        user: {
+          select: {
+            id: true,
+            username: true,
+            name: true,
+            image: true,
           },
         },
-      })
+      },
+    })
     : [];
 
   const playedLogs = communityLogs.filter((l) => l.status === 'PLAYED');
@@ -352,6 +353,11 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
           {/* Header / Meta Bar */}
           <div className="flex flex-wrap items-center justify-between gap-4 w-full border-b border-slate-800 pb-4">
             <h1 className="text-3xl font-extrabold text-white">{game.name}</h1>
+            <DLCGridModal
+              parentIgdbId={game.igdbId}
+              parentGameTitle={game.name}
+              parentCoverUrl={game.coverUrl}
+            />
             <div className="flex flex-wrap items-center gap-2">
               {Array.isArray(game.genres) && game.genres.length > 0 ? (
                 game.genres.map((genre: string) => (
@@ -370,11 +376,10 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
             {/* Release Date Badge */}
             {game.releaseDate && (
               <div
-                className={`flex items-center gap-1.5 text-xs font-mono font-bold px-3 py-1 rounded-lg shrink-0 border ${
-                  game.isUpcoming
+                className={`flex items-center gap-1.5 text-xs font-mono font-bold px-3 py-1 rounded-lg shrink-0 border ${game.isUpcoming
                     ? 'bg-emerald-950/60 border-emerald-800/80 text-emerald-400'
                     : 'bg-purple-950/40 border-purple-800/40 text-purple-400'
-                }`}
+                  }`}
               >
                 <span>{game.isUpcoming ? '🚀 Releases:' : '🗓️ Released:'}</span>
                 <span>{game.releaseDate}</span>
@@ -580,14 +585,14 @@ export default async function GameDetailsPage({ params, searchParams }: GamePage
           initialLog={
             existingLog
               ? {
-                  status: existingLog.status as any,
-                  rating: existingLog.rating,
-                  playtimeHours: existingLog.playtimeHours,
-                  platforms: existingLog.platforms || [],
-                  isOwned: existingLog.isOwned,
-                  review: (existingLog as any).review || '',
-                  substatus: existingLog.substatus || null,
-                }
+                status: existingLog.status as any,
+                rating: existingLog.rating,
+                playtimeHours: existingLog.playtimeHours,
+                platforms: existingLog.platforms || [],
+                isOwned: existingLog.isOwned,
+                review: (existingLog as any).review || '',
+                substatus: existingLog.substatus || null,
+              }
               : undefined
           }
         />

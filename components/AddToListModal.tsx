@@ -18,6 +18,7 @@ interface AddToListModalProps {
     coverUrl?: string | null;
     igdbId?: number | null;
     steamAppId?: number | null;
+    isDlc?: boolean; // ✨ Add optional DLC flag
   };
   userLists: { id: string; title: string }[];
   customTrigger?: React.ReactNode;
@@ -53,7 +54,7 @@ export default function AddToListModal({ game, userLists, customTrigger }: AddTo
       setFeedback(null);
       setNote('');
       setNewListTitle('');
-      
+
       // Check length against localUserLists to ensure we are looking at the current data
       if (localUserLists.length > 0) {
         setIsCreatingNewList(false);
@@ -134,7 +135,9 @@ export default function AddToListModal({ game, userLists, customTrigger }: AddTo
         igdbId: game.igdbId ? Number(game.igdbId) : null,
         steamAppId: game.steamAppId ? Number(game.steamAppId) : null,
         note: note.trim() || undefined,
+        isDlc: game.isDlc || false, // ✨ Forward isDlc flag
       });
+
 
       setLoading(false);
 
@@ -176,11 +179,10 @@ export default function AddToListModal({ game, userLists, customTrigger }: AddTo
 
         {feedback && (
           <div
-            className={`p-3 rounded-xl border text-xs font-semibold ${
-              feedback.type === 'success'
+            className={`p-3 rounded-xl border text-xs font-semibold ${feedback.type === 'success'
                 ? 'bg-emerald-950/60 border-emerald-800 text-emerald-300'
                 : 'bg-red-950/60 border-red-800 text-red-300'
-            }`}
+              }`}
           >
             {feedback.message}
           </div>
@@ -263,8 +265,8 @@ export default function AddToListModal({ game, userLists, customTrigger }: AddTo
               {loading
                 ? 'Processing...'
                 : isCreatingNewList
-                ? 'Create & Add'
-                : 'Add to List'}
+                  ? 'Create & Add'
+                  : 'Add to List'}
             </button>
           </div>
         </form>

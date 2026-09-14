@@ -123,12 +123,29 @@ model Game {
   updatedAt   DateTime @updatedAt
 
   logs        GameLog[]
+  dlcs        DLC[]
+}
+
+model DLC {
+  id            String    @id @default(cuid())
+  igdbId        Int       @unique
+  name          String
+  coverUrl      String?
+  releaseYear   Int?
+
+  gameIgdbId    Int
+  game          Game      @relation(fields: [gameIgdbId], references: [igdbId], onDelete: Cascade)
+
+  gameLogs      GameLog[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
 }
 
 model GameLog {
   id              String   @id @default(cuid())
   userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   steamAppId      Int?                        // Steam AppID (from Steam API)
   igdbId          Int?                        // IGDB Game Id (from search or resolved during sync)
@@ -149,13 +166,13 @@ model GameLog {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
+  dlcs            DLC[]
+
   comments        Comment[]
   reactions       Reaction[]
 
-  game            Game?    @relation(fields: [igdbId], references: [igdbId], onDelete: SetNull)
-
-  @@unique([userId, steamAppId])
-  @@unique([userId, igdbId])
+  game            Game?      @relation(fields: [igdbId], references: [igdbId], onDelete: SetNull)
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model CustomList {
@@ -184,8 +201,10 @@ model CustomListItem {
   coverUrl      String?
   igdbId        Int?
   steamAppId    Int?
+  isDlc         Boolean     @default(false)
   note          String?
   position      Int         @default(0)
+
   addedAt       DateTime    @default(now())
 }
 
