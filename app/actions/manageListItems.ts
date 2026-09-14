@@ -33,6 +33,71 @@ interface AddGameToListInput {
   parentGameTitle?: string | null;
 }
 
+export async function removeGameFromList(itemId: string, customListId: string) {
+  const session = await auth();
+  if (!session?.user) return { success: false, error: 'Unauthorized' };
+
+  try {
+    await prisma.customListItem.delete({
+      where: { id: itemId },
+    });
+
+    revalidatePath('/lists');
+    revalidatePath(`/list/${customListId}`);
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error removing item from list:', error);
+    return { success: false, error: error?.message || 'Failed to remove item.' };
+  }
+}
+
+export async function updateListItemNote(
+  itemId: string,
+  note: string,
+  customListId: string
+) {
+  const session = await auth();
+  if (!session?.user) return { success: false, error: 'Unauthorized' };
+
+  try {
+    const updatedItem = await prisma.customListItem.update({
+      where: { id: itemId },
+      data: { note },
+    });
+
+    revalidatePath(`/list/${customListId}`);
+    return { success: true, item: updatedItem };
+  } catch (error: any) {
+    console.error('Error updating note:', error);
+    return { success: false, error: error?.message || 'Failed to update note.' };
+  }
+}
+
+export async function updateItemPositions(
+  items: { id: string; position: number }[],
+  customListId: string
+) {
+  const session = await auth();
+  if (!session?.user) return { success: false, error: 'Unauthorized' };
+
+  try {
+    await prisma.$transaction(
+      items.map((item) =>
+        prisma.customListItem.update({
+          where: { id: item.id },
+          data: { position: item.position },
+        })
+      )
+    );
+
+    revalidatePath(`/list/${customListId}`);
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error updating positions:', error);
+    return { success: false, error: error?.message || 'Failed to reorder items.' };
+  }
+}
+
 export async function addGameToList(input: AddGameToListInput) {
   const session = await auth();
   if (!session?.user) return { success: false, error: 'Unauthorized' };
