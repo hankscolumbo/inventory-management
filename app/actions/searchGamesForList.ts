@@ -1,4 +1,3 @@
-// app/actions/searchGamesForList.ts
 'use server';
 
 async function getTwitchToken() {
@@ -68,7 +67,7 @@ export async function searchGamesForList(query: string): Promise<SearchGameResul
   try {
     const cleanQuery = trimmedQuery.replace(/"/g, '\\"');
 
-    // 1. Request popularity fields: `total_rating_count` and `follows`
+    // 1. Fetch base games, remakes, remasters, and ports (game_type 0, 8, 9, 10, 11, 12)
     const res = await fetch('https://api.igdb.com/v4/games', {
       method: 'POST',
       headers: {
@@ -77,7 +76,7 @@ export async function searchGamesForList(query: string): Promise<SearchGameResul
         'Content-Type': 'text/plain',
       },
       cache: 'no-store',
-      body: `fields name, cover.url, first_release_date, game_type, version_parent, parent_game, total_rating_count, follows; search "${cleanQuery}"; where game_type = (0, 3, 4, 8, 9, 10, 11, 12); limit 50;`,
+      body: `fields name, cover.url, first_release_date, game_type, total_rating_count, follows; search "${cleanQuery}"; where game_type = (0, 8, 9, 10, 11, 12) & cover != null; limit 50;`,
     });
 
     if (!res.ok) return [];
@@ -85,17 +84,23 @@ export async function searchGamesForList(query: string): Promise<SearchGameResul
 
     if (!Array.isArray(games)) return [];
 
-    // 2. Filter base games only
+    // 2. Filter out edition bloat (GOTY, Deluxe, etc.)
     const baseGames = games.filter((game: any) => isBaseGameTitle(game.name));
 
-    // 3. Deduplicate results by title
-    const seenTitles = new Set<string>();
+    // 3. Deduplicate by Title + Release Year so same-named remakes/originals are both kept
+    const seenKeys = new Set<string>();
     const uniqueGames: any[] = [];
 
     for (const game of baseGames) {
       const normalizedTitle = game.name.toLowerCase().trim();
-      if (!seenTitles.has(normalizedTitle)) {
-        seenTitles.add(normalizedTitle);
+      const year = game.first_release_date
+        ? new Date(game.first_release_date * 1000).getFullYear()
+        : game.id;
+      
+      const compositeKey = `${normalizedTitle}-${year}`;
+
+      if (!seenKeys.has(compositeKey)) {
+        seenKeys.add(compositeKey);
         uniqueGames.push(game);
       }
     }
@@ -106,21 +111,20 @@ export async function searchGamesForList(query: string): Promise<SearchGameResul
       const aName = a.name.toLowerCase();
       const bName = b.name.toLowerCase();
 
-      // Rule A: Exact title match ALWAYS goes to top
+      // Exact matches go to top
       const aExact = aName === lowerQuery;
       const bExact = bName === lowerQuery;
       if (aExact && !bExact) return -1;
       if (!aExact && bExact) return 1;
 
-      // Rule B: Calculate popularity score based on ratings and follows
+      // Calculate popularity score
       const aScore = (a.total_rating_count || 0) * 2 + (a.follows || 0);
       const bScore = (b.total_rating_count || 0) * 2 + (b.follows || 0);
 
-      // Higher popularity score ranks first
       return bScore - aScore;
     });
 
-    // 5. Return top 15 popular matching results
+    // 5. Return top 15 results
     return uniqueGames.slice(0, 15).map((game: any) => {
       const rawCover = game.cover?.url;
       const coverUrl = rawCover
@@ -143,3 +147,4 @@ export async function searchGamesForList(query: string): Promise<SearchGameResul
     return [];
   }
 }
+
