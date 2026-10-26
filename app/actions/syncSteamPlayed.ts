@@ -15,7 +15,7 @@ function parseSteamDate(rtime?: number): Date | null {
 // Helper: Fetch Twitch Access Token
 async function getTwitchToken(clientId: string, clientSecret: string) {
   const tokenRes = await fetch(
-    `https://id.twitch.tv/oauth2/token?client_id=${clientId}&client_secret=${clientSecret}&grant_type=client_credentials`,
+    `https://id.twitch.tv/oauth2/token?client_id=clientId&clientsecret={clientSecret}&grant_type=client_credentials`,
     { method: 'POST', cache: 'no-store' }
   );
   const tokenData = await tokenRes.json();
@@ -137,21 +137,32 @@ export async function syncSteamPlayedGames() {
       return { success: false, error: 'No linked Steam ID Found.' };
     }
 
-    const STEAM_API_KEY = process.env.STEAM_API_KEY;
-    const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID?.trim();
-    const TWITCH_CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET?.trim();
+    // ✨ Clean up env string quotes and trailing spaces/newlines
+    const STEAM_API_KEY = process.env.STEAM_API_KEY?.replace(/["']/g, '').trim();
+    const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID?.replace(/["']/g, '').trim();
+    const TWITCH_CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET?.replace(/["']/g, '').trim();
 
     if (!STEAM_API_KEY || !TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET) {
       return { success: false, error: 'STEAM or TWITCH environment variables are missing' };
     }
 
-    const SteamRes = await fetch(
-      `https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=${STEAM_API_KEY}&steamid=${user.steamId}&include_appinfo=true&include_played_free_games=true&format=json`
-    );
+    // ✨ Build Steam API request safely via URLSearchParams
+    const steamUrl = new URL('https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/');
+    steamUrl.searchParams.append('key', STEAM_API_KEY);
+    steamUrl.searchParams.append('steamid', user.steamId.trim());
+    steamUrl.searchParams.append('include_appinfo', 'true');
+    steamUrl.searchParams.append('include_played_free_games', 'true');
+    steamUrl.searchParams.append('format', 'json');
+
+    const SteamRes = await fetch(steamUrl.toString(), { cache: 'no-store' });
 
     if (!SteamRes.ok) {
-      console.error('Steam API Response Error:', await SteamRes.text());
-      return { success: false, error: 'Failed to fetch games from Steam API.' };
+      const errText = await SteamRes.text();
+      console.error('Steam API Response Error:', errText);
+      return {
+        success: false,
+        error: `Steam API authentication failed (HTTP ${SteamRes.status}). Verify your STEAM_API_KEY at steamcommunity.com/dev/apikey.`,
+      };
     }
 
     const steamData = await SteamRes.json();
@@ -180,7 +191,39 @@ export async function syncSteamPlayedGames() {
         igdbDetailsMap = await getIgdbIdsForSteamApps(chunkAppIds, TWITCH_CLIENT_ID, twitchToken);
       }
 
-      const upsertOperations = chunk.map(async (game: any) => {
+      // Step 1: Pre-upsert parent Game records sequentially to prevent FK constraint errors
+      for (const game of chunk) {
+        const appId = Number(game.appid);
+        const igdbInfo = igdbDetailsMap[appId];
+        const resolvedIgdbId = igdbInfo?.igdbId ? Number(igdbInfo.igdbId) : null;
+
+        if (resolvedIgdbId) {
+          const gameTitle =
+            igdbInfo?.name ||
+            (game.name || !game.name?.startsWith('Steam App') ? game.name : null) ||
+            `Steam App ${appId}`;
+
+          const coverUrl =
+            igdbInfo?.coverUrl ||
+            `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
+
+          await prisma.game.upsert({
+            where: { igdbId: resolvedIgdbId },
+            update: {
+              name: gameTitle,
+              ...(coverUrl && { coverUrl }),
+            },
+            create: {
+              igdbId: resolvedIgdbId,
+              name: gameTitle,
+              coverUrl: coverUrl || null,
+            },
+          });
+        }
+      }
+
+      // Step 2: Write GameLog entries
+      for (const game of chunk) {
         const appId = Number(game.appid);
         const igdbInfo = igdbDetailsMap[appId];
 
@@ -195,8 +238,6 @@ export async function syncSteamPlayedGames() {
 
         const rawMinutes = typeof game.playtime_forever === 'number' ? game.playtime_forever : 0;
         const playtimeHours = Number((rawMinutes / 60).toFixed(1));
-
-        // Parse Steam's rtime_last_played (Unix timestamp in seconds)
         const steamPlayedOn = parseSteamDate(game.rtime_last_played);
 
         const resolvedIgdbId = igdbInfo?.igdbId ? Number(igdbInfo.igdbId) : null;
@@ -215,8 +256,18 @@ export async function syncSteamPlayedGames() {
           },
         });
 
+        let targetIgdbId: number | null = resolvedIgdbId;
+
+        // Verify existing log's igdbId exists locally if no match returned
+        if (!targetIgdbId && existingLog?.igdbId) {
+          const validGame = await prisma.game.findUnique({
+            where: { igdbId: existingLog.igdbId },
+            select: { igdbId: true },
+          });
+          targetIgdbId = validGame ? existingLog.igdbId : null;
+        }
+
         if (existingLog) {
-          // Compare and keep whichever date is newest (or retain existing date if Steam date is null)
           let finalPlayedOn = existingLog.playedOn;
 
           if (steamPlayedOn) {
@@ -225,7 +276,7 @@ export async function syncSteamPlayedGames() {
             }
           }
 
-          return prisma.gameLog.update({
+          await prisma.gameLog.update({
             where: { id: existingLog.id },
             data: {
               gameTitle,
@@ -234,11 +285,11 @@ export async function syncSteamPlayedGames() {
               steamAppId: appId,
               playedOn: finalPlayedOn,
               isOwned: true,
-              ...(resolvedIgdbId ? { igdbId: resolvedIgdbId } : {}),
+              igdbId: targetIgdbId,
             },
           });
         } else {
-          return prisma.gameLog.create({
+          await prisma.gameLog.create({
             data: {
               userId: user.id,
               steamAppId: appId,
@@ -246,15 +297,14 @@ export async function syncSteamPlayedGames() {
               coverUrl,
               status: 'PLAYED',
               isOwned: true,
-              igdbId: resolvedIgdbId,
+              igdbId: targetIgdbId,
               playtimeHours,
               playedOn: steamPlayedOn,
             },
           });
         }
-      });
+      }
 
-      await Promise.all(upsertOperations);
       savedCount += chunk.length;
     }
 
@@ -269,4 +319,5 @@ export async function syncSteamPlayedGames() {
     return { success: false, error: 'Database transaction failed during sync.' };
   }
 }
+
 
